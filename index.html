@@ -1,187 +1,36 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Credit Card Payment Demo</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Credit Card Payment Demo</title>
 
-<!-- Style  -->
-<style>
-  :root{ 
-    --maroon:#8A100B; 
-    --gold:#EAAA00; 
-    --muted:#6b7280; 
-    --ring:#e5e7eb; 
-  }
-  
-  body{ 
-    font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; 
-    margin:0; 
-    padding:20px; 
-    background:#fff; 
-    color:#111;}
-  
-  .wrap{ 
-    max-width:900px; 
-    margin:0 auto; 
-  }
-  
-  header{ 
-    margin-bottom:20px; 
-  }
-  
-  h1{ 
-    color:var(--maroon); 
-    margin:0 0 6px; 
-  }
-  
-  .sub{ 
-    color:var(--muted); 
-    margin:0; 
-  }
-  
-  .card{ 
-    padding:20px; 
-    border:1px solid var(--ring); 
-    border-radius:12px; 
-    box-shadow:0 2px 6px rgba(0,0,0,.05); 
-  }
-  
-  label{ 
-    font-weight:600; 
-  }
-  
-  .options label{ 
-    display:block; 
-    margin:8px 0; 
-    font-weight:600; 
-  }
-  
-  input[type="number"]{ 
-    padding:4px; 
-    border-radius:6px; 
-    border:1px solid var(--ring); 
-    width:120px; 
-    font-size:0.9rem; 
-    margin-left:6px; 
-  }
-  
-  input[type="range"]{ 
-    width:100%; 
-    accent-color:var(--maroon); 
-  }
-  
-  .results{ 
-    display:flex; 
-    gap:20px; 
-    margin-top:10px; 
-  }
-  
-  .stat{ 
-    flex:1; 
-    background:#fafafa; 
-    border:1px solid var(--ring); 
-    padding:12px; 
-    border-radius:10px; 
-  }
-  
-  .stat .k{ 
-    color:var(--muted); 
-  }
-  
-  .stat .v{ 
-    font-size:1.6rem; 
-    font-weight:800; 
-  }
-  
-  .bar{ 
-    margin-top:16px; 
-  }
-  
-  .lab{ 
-    display:flex; 
-    justify-content:space-between; 
-    color:var(--muted); 
-    font-size:.95rem; 
-    margin-bottom:6px; 
-  }
-  
-  .track{ 
-    height:12px; 
-    background:#eee; 
-    border-radius:8px; 
-    overflow:hidden; 
-  }
-  
-  .fill{ 
-    height:100%; 
-    width:0%; 
-    background:linear-gradient(90deg,var(--maroon),var(--gold)); 
-  }
-  
-  footer{ 
-    margin-top:20px; 
-    font-size:.9rem; 
-    color:var(--muted); 
-    text-align:center; 
-  }
-  
-  /* .help-icon{ 
-    display:inline-block; 
-    margin-left:6px; 
-    background:#ccc; 
-    color:#000; 
-    font-weight:800; 
-    border-radius:50%; 
-    width:20px; 
-    height:20px; 
-    line-height:20px; 
-    text-align:center; 
-    cursor:pointer; 
-    border:none; 
-    font-size:.9rem; 
-  } */
-  
-  .slider-box{ 
-    display:block; 
-    margin-top:8px; 
-    padding:10px; 
-    background:#f9f9f9; 
-    border:1px solid #ddd; 
-    border-radius:8px; 
-  }
+  <!-- Chart.js Library Dependency -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  /* .extra-info{ 
-    margin-top:15px; 
-    font-size:0.95rem; 
-  }
-  .extra-info p{ 
-    margin:4px 0; 
-  } */
-</style>
-
-<!-- Main Body  -->
+  <!-- External Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Credit Card Payment Calculator</h1>
+    <h1>Credit Card Payment Decision</h1>
     <p class="sub">
-      Click a payment option to view the total payoff time and total payment amount. Afterwards, please make your payment choice below this calculator.
+      Click a payment option or move the slider to view the total payoff time and total payment amount. Afterwards, please enter your choice at the bottom of the screen.
     </p>
   </header>
 
   <main class="card" role="region" aria-label="Calculator">
     <!-- Payment Options -->
     <section aria-labelledby="options-title">
-      <h2 id="options-title" style="margin:0 0 8px; font-size:1.1rem;">
-        Choose Your Monthly Payment Amount
+      <h2 id="options-title" class="section-title">
+        Monthly Payment Amount Options
       </h2>
 
       <div class="options">
         <label>
           <input type="radio" name="payOption" value="1836.90">
-          Statement Balance (as of 10/1/25): $1836.90
+          Statement Balance (as of 03/01/2026): $1836.90
         </label>
         <label>
           <input type="radio" name="payOption" value="1875.11">
@@ -191,40 +40,35 @@
           <input type="radio" name="payOption" value="38.00">
           Minimum Payment Due: $38.00
         </label>
-
-        <!-- Other Amount -->
         <label>
           <input type="radio" name="payOption" value="other">
           Other Amount (Must be greater than $38):
           <input id="paymentInput" type="number" min="38" max="1875.11" step="0.01" placeholder="Enter amount" />
+          <div id="errorMessage" class="error-msg">
+            ⚠️ Payment must be at least $38.00 (the minimum payment due)
+          </div>
         </label>
       </div>
 
-      <!-- Slider box -->
-      <div class="slider-box" id="sliderBox">
-        <p>
-          If you pay <strong>$<span id="descPayment">-</span></strong> each month and make no new charges,
-          you will pay off your current balance in <strong><span id="descYears">—</span></strong>,
-          for a total payment of <strong>$<span id="descTotal">—</span></strong>.
-        </p>
-        <input id="paymentRange" type="range" min="38" max="1875.11" step="0.01" value="38" />
+      <!-- Slider section with extra spacing -->
+      <div style="margin-top: 24px;">
+        <h2 class="section-title">
+          Use the Slider to View Details of Your Payment
+        </h2>
+        <div class="slider-box-plain">
+          <p>
+            If you pay <strong>$<span id="descPayment">-</span></strong> each month and make no new charges,
+            you will pay off your current balance in <strong><span id="descYears">—</span></strong>,
+            for a total payment of <strong>$<span id="descTotal">—</span></strong>.
+          </p>
+          <input id="paymentRange" type="range" min="38" max="1875.11" step="0.01" value="38" />
+        </div>
       </div>
-    
-      <!-- Bank account & due-date details removed per Oct 2025 study version -->
-      <!-- Extra Info -->
-      <!--
-      <div class="extra-info">
-        <p><strong>Pay from:</strong> Bank of America Checking ****1234</p>
-        <p><strong>Payment due:</strong> 05/20/2024</p>
-        <p><strong>Payment date:</strong> 04/24/2014</p>
-      </div>
-      -->
-
     </section>
 
     <!-- Results -->
     <section aria-labelledby="results-title">
-      <h2 id="results-title" style="margin:16px 0 8px; font-size:1.1rem;">
+      <h2 id="results-title" class="section-title-results">
         Estimated Payoff Summary
       </h2>
       <div class="results" role="status" aria-live="polite">
@@ -237,177 +81,31 @@
           <div class="v" id="totalOut">—</div>
         </div>
       </div>
-      <p style="font-size:0.9rem; color:#6b7280; margin-top:6px;">
+      <p class="disclaimer">
         *Calculations assume a 21% annual interest rate and no additional charges.
       </p>
 
-      
-      <div class="bar">
-        <div class="lab"><span>Progress toward payoff</span><span id="progLabel">0%</span></div>
-        <div class="track"><div class="fill" id="fill"></div></div>
+       <!-- Graphs -->
+      <div class="graph-section">
+        <h3 class="graph-title">Cumulative Amount Paid (Principal + Interest) by Month</h3>
+        <div class="chart-wrap">
+          <div class="chart-box">
+              <canvas id="stackedChart"></canvas>
+          </div>
+        </div>
       </div>
-    
     </section>
   </main>
+
+  <!-- Submit Session Action Area -->
+  <div class="submit-box">
+    <button id="submitSessionBtn" class="btn-submit">Submit Choice & Save Session</button>
+  </div>
 
   <footer>Demo Website for Research Use Only</footer>
 </div>
 
-<script>
-  let isTyping = false;
-  
-  // --- Constants (Oct 2025 update) ---
-  const STATEMENT_BALANCE = 1836.90;
-  const CURRENT_BALANCE   = 1875.11;  // slider denominator / payoff base
-  const MIN_PAYMENT       = 38.00;
-  const ANNUAL_RATE       = 0.21;
-  const MONTHLY_RATE      = ANNUAL_RATE / 12;
-
-  const paymentRange = document.getElementById('paymentRange');
-  const paymentInput = document.getElementById('paymentInput');
-  const yearsOut     = document.getElementById('yearsOut');
-  const totalOut     = document.getElementById('totalOut');
-  // const fillEl       = document.getElementById('fill');
-  // const progLabel    = document.getElementById('progLabel');
-  const sliderBox    = document.getElementById('sliderBox');
-  // const sliderHelp   = document.getElementById('sliderHelp');
-  const descPayment  = document.getElementById('descPayment');
-  const descYears    = document.getElementById('descYears');
-  const descTotal    = document.getElementById('descTotal');
-
-  function compute(payment){
-    const balance = CURRENT_BALANCE;
-    const monthlyPayment = Math.max(0, Number(payment) || 0);
-    if (monthlyPayment <= balance * MONTHLY_RATE) return { pay: monthlyPayment, years: Infinity, total: Infinity };
-    if (monthlyPayment >= balance) return { pay: monthlyPayment, years: 0, total: balance };
-    const months = Math.log(monthlyPayment / (monthlyPayment - MONTHLY_RATE * balance)) / Math.log(1 + MONTHLY_RATE);
-    const years = months / 12;
-    const total = monthlyPayment * months;
-    return { pay: monthlyPayment, years, total };
-  }
-
-  // --- Updated payoff formula (uses amortization logic) ---
-  function render(payment) {
-    if (!payment || isNaN(payment) || payment <= 0) return;
-
-    const { pay, years, total } = compute(payment);
-    updateDisplay(pay, total);
-
-    if (!isFinite(years)) {
-      yearsOut.textContent = "—";
-      descYears.textContent = "—";
-      return;
-    }
-
-    // Convert to months (rounded up)
-    const totalMonths = Math.ceil(years * 12);
-    let timeText = "";
-
-    if (totalMonths <= 0) {
-      // Exact full payment — show 0 months
-      timeText = "0 months";
-    } else if (totalMonths < 12) {
-      // Only months
-      timeText = totalMonths === 1 ? "1 month" : `${totalMonths} months`;
-    } else {
-      // Years + remaining months
-      const wholeYears = Math.floor(totalMonths / 12);
-      const remainingMonths = totalMonths % 12;
-  
-      if (remainingMonths === 0) {
-        timeText = wholeYears === 1 ? "1 year" : `${wholeYears} years`;
-      } else {
-        const yearLabel = wholeYears === 1 ? "year" : "years";
-        const monthLabel = remainingMonths === 1 ? "month" : "months";
-        timeText = `${wholeYears} ${yearLabel} and ${remainingMonths} ${monthLabel}`;
-      }
-    }
-  
-    // Unified updates for both displays
-    yearsOut.textContent = timeText;
-    descYears.textContent =
-      totalMonths <= 1 ? timeText : `about ${timeText}`;
-  }
-
-
-
-  // function sendToQualtrics(payment) {
-  //   if (window.parent && window.parent.postMessage) {
-  //     window.parent.postMessage({ type: "paymentChoice", value: payment }, "*");
-  //   }
-  // }
-
-  function updateDisplay(pay, total) {
-    const formattedPay = pay.toFixed(2);
-    const formattedTotal = total.toFixed(2);
-
-    totalOut.textContent   = `$${formattedTotal}`;
-    descPayment.textContent = formattedPay;
-    descTotal.textContent   = formattedTotal;
-    paymentRange.value      = Math.min(pay, CURRENT_BALANCE).toFixed(2);
-
-    // 🛑 Only update the input if the user isn't typing
-    if (!isTyping) paymentInput.value = formattedPay;
-  }
-
-  // --- Event Listeners (re-added and simplified) ---
-
-  // Slider updates results dynamically
-  paymentRange.addEventListener('input', e => {
-    let val = +e.target.value;
-    if (Math.abs(val - CURRENT_BALANCE) < 0.1) val = CURRENT_BALANCE;
-    render(val);
-  });
-
-  // Start typing
-  paymentInput.addEventListener('focus', () => {
-    isTyping = true;
-  });
-
-  // Update live preview without formatting
-  paymentInput.addEventListener('input', e => {
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val)) render(val);
-  });
-
-  // Stop typing (user done)
-  paymentInput.addEventListener('blur', e => {
-    isTyping = false;
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val)) {
-      e.target.value = val.toFixed(2);
-      render(val); // update final formatted value
-    }
-  });
-
-  // Radio buttons trigger render when selected
-  document.querySelectorAll('input[name="payOption"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      if (radio.value === 'other') {
-        const val = +paymentInput.value;
-        if (!val) return; // only update once number entered
-        paymentRange.value = val; // 🆕 sync slider to “Other” input value
-        render(val);
-      } else {
-        paymentRange.value = radio.value; // 🆕 sync slider thumb to selected amount
-        render(+radio.value);
-      }
-    });
-  });
-
-
-  // sliderHelp.addEventListener('click', () => {
-  //   const isHidden = window.getComputedStyle(sliderBox).display === 'none';
-  //   sliderBox.style.display = isHidden ? 'block' : 'none';
-  //   sliderHelp.setAttribute('aria-expanded', String(isHidden));
-  // });
-
-  // --- Wait for user interaction before showing results ---
-  // This keeps the screen blank ("—") until someone selects a payment or moves the slider.
-  // The first render() call will come from the event listeners below.
-  window.addEventListener('DOMContentLoaded', () => {     
-    // Do nothing on load — wait for user input to trigger render()
-  });
-</script>
+<!-- External JavaScript Amortization Logic -->
+<script src="script.js"></script>
 </body>
 </html>
