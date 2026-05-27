@@ -1,4 +1,5 @@
 // --- Session Data Tracking (for research purposes May 2026) ---
+// Variables which track user interactions, timing, and choices for research analysis.
 let tracking = {
   startTime: Date.now(),
   endTime: null,
@@ -13,7 +14,7 @@ let tracking = {
   firstSliderUseTime: null,
   firstCustomInputTime: null
 };
-
+// Flag to prevent input conflicts and multiple submissions
 let isTyping = false;
 let submitted = false;
 let stackedChart;
@@ -34,7 +35,7 @@ const totalOut     = document.getElementById('totalOut');
 const descPayment  = document.getElementById('descPayment');
 const descYears    = document.getElementById('descYears');
 const descTotal    = document.getElementById('descTotal');
-
+// --- Core Calculation and Display Logic ---
 function compute(payment) {
   const balance = CURRENT_BALANCE;
   const monthlyPayment = Math.max(0, Number(payment) || 0);
@@ -46,7 +47,7 @@ function compute(payment) {
   const total = monthlyPayment * months;
   return { pay: monthlyPayment, years, total, months };
 }
-
+// Updates the displayed payment, total cost, and syncs the range slider with the custom input if applicable.
 function updateDisplay(pay, total) {
   const formattedPay = pay.toFixed(2);
   const formattedTotal = total.toFixed(2);
@@ -62,18 +63,32 @@ function updateDisplay(pay, total) {
     paymentInput.value = formattedPay;
   }
 }
-
+// Main function to render the results based on the payment input, including time to payoff and total cost, with proper formatting and edge case handling.
 function render(payment) {
   if (!payment || isNaN(payment) || payment <= 0) return;
 
   const { pay, years, total, months } = compute(payment);
-  updateDisplay(pay, total);
-
+  
   if (!isFinite(years)) {
-    yearsOut.textContent = "—";
-    descYears.textContent = "—";
+    // Cleanly update text elements to reflect an infinite timeline
+    totalOut.textContent   = "$∞";
+    descPayment.textContent = pay.toFixed(2);
+    descTotal.textContent   = "Infinity (Balance will grow)";
+    yearsOut.textContent    = "Never";
+    descYears.textContent   = "an infinite amount of time";
+    
+    // Clear out or reset your Chart.js data so it doesn't freeze old data
+    if (stackedChart) {
+      stackedChart.data.labels = ["Balance Accrues"];
+      stackedChart.data.datasets[0].data = [CURRENT_BALANCE]; // Visual block
+      stackedChart.data.datasets[1].data = [0];
+      stackedChart.update();
+    }
     return;
   }
+
+  // Otherwise, proceed with normal update display...
+  updateDisplay(pay, total);
 
   const totalMonths = Math.ceil(months);
   let timeText = "";
@@ -179,10 +194,8 @@ function updateCharts(payment) {
 // --- Dynamic Interactive Event Listeners ---
 
 // Range Slider Changes
+// 1. Smoothly update the calculations and graph as they drag (NO count inflation)
 paymentRange.addEventListener('input', e => {
-  tracking.sliderMoves++;
-  tracking.interactionCount++;
-
   if (!tracking.usedSlider) {
     tracking.usedSlider = true;
     tracking.firstSliderUseTime = Date.now() - tracking.startTime;
@@ -192,6 +205,20 @@ paymentRange.addEventListener('input', e => {
   tracking.finalChoice = val;
   if (Math.abs(val - CURRENT_BALANCE) < 0.1) val = CURRENT_BALANCE;
   render(val);
+});
+
+// 2. Log EXACTLY one move only when they release their click/finger from the slider
+paymentRange.addEventListener('change', e => {
+  tracking.sliderMoves++;
+  tracking.interactionCount++;
+  
+  let val = +e.target.value;
+  if (Math.abs(val - CURRENT_BALANCE) < 0.1) val = CURRENT_BALANCE;
+  
+  // Capture their initial instinct if they haven't made a choice yet
+  if (!tracking.firstChoice) {
+    tracking.firstChoice = val;
+  }
 });
 
 // Custom Text Entry Focus Checks
@@ -208,7 +235,7 @@ paymentInput.addEventListener('input', e => {
   const val = parseFloat(e.target.value);
   const errorMessage = document.getElementById('errorMessage');
   
-  if (!isNaN(val) && val < MIN_PAYMENT) {
+  if (!isNaN(val) && val < 0) {
     errorMessage.style.display = 'block';
     return; 
   } else {

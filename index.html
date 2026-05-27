@@ -42,10 +42,10 @@
         </label>
         <label>
           <input type="radio" name="payOption" value="other">
-          Other Amount (Must be greater than $38):
-          <input id="paymentInput" type="number" min="38" max="1875.11" step="0.01" placeholder="Enter amount" />
+          Other Amount:
+          <input id="paymentInput" type="number" min="0" max="1875.11" step="0.01" placeholder="Enter amount" />
           <div id="errorMessage" class="error-msg">
-            ⚠️ Payment must be at least $38.00 (the minimum payment due)
+            ⚠️ Payment must be at least $0
           </div>
         </label>
       </div>
@@ -61,7 +61,7 @@
             you will pay off your current balance in <strong><span id="descYears">—</span></strong>,
             for a total payment of <strong>$<span id="descTotal">—</span></strong>.
           </p>
-          <input id="paymentRange" type="range" min="38" max="1875.11" step="0.01" value="38" />
+          <input id="paymentRange" type="range" min="0" max="1875.11" step="0.01" value="38" />
         </div>
       </div>
     </section>
