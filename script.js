@@ -112,6 +112,7 @@ function render(payment) {
 }
 
 function updateCharts(payment) {
+  if (version === 0 || version === 1) return;
   const { pay, years, months } = compute(payment);
   if (!isFinite(years)) return;
   const totalMonths = Math.ceil(months);
@@ -281,4 +282,26 @@ document.getElementById("submitSessionBtn").addEventListener("click", () => {
   const data = getSessionData();
   sendToQualtrics(data);
   downloadSession();
+});
+// ─── Study Version Control ────────────────────────────
+const urlParams = new URLSearchParams(window.location.search);
+// Read ?v= from URL; default to Version 2 if missing
+const version = urlParams.get('v') !== null ? parseInt(urlParams.get('v')) : 2; 
+
+document.addEventListener("DOMContentLoaded", () => {
+  const sliderSection = document.getElementById("sliderSection");
+  const chartSection  = document.getElementById("chartSection");
+  const radioOther    = document.querySelector('.option-row--other');
+
+  if (version === 0) {
+    // Dynamic0: Hide Slider, Hide Chart, and Hide "Custom Amount" radio row
+    if (sliderSection) sliderSection.classList.add("hidden");
+    if (chartSection)  chartSection.classList.add("hidden");
+    if (radioOther)    radioOther.classList.add("hidden"); 
+  } 
+  else if (version === 1) {
+    // Dynamic1: Keep Slider, Hide Chart
+    if (chartSection) chartSection.classList.add("hidden");
+  }
+  // version 2 leaves everything untouched
 });

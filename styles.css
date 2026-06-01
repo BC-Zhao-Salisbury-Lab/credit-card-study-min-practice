@@ -521,6 +521,9 @@ body {
   transform: scale(1.015);
   box-shadow: var(--shadow-md);
 }
+.hidden {
+  display: none !important;
+}
 /* ─── Responsive ─────────────────────────────────────── */
 @media (max-width: 760px) {
   .hero-title { font-size: 1.5rem; }

@@ -9,17 +9,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css"
-  />
-  <head>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" />
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="%232E6B4F"><path d="M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H512c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM192 160h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H192c-8.8 0-16-7.2-16-16V176c0-8.8 7.2-16 16-16zm-32 96c0-8.8 7.2-16 16-16H448c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V256z"/></svg>'>
-</head>
 </head>
 <body>
 
-  <!-- Top Navigation Bar -->
   <nav class="navbar">
       <div class="nav-brand">
         <i class="fa-solid fa-piggy-bank" id="logo"></i>
@@ -28,7 +22,6 @@
       <i class="fa-solid fa-bars nav-icon"></i>
   </nav>
 
-  <!-- Hero Banner -->
   <div class="hero-bar">
     <div class="hero-inner">
       <i class="fa-solid fa-credit-card hero-icon"></i>
@@ -39,18 +32,13 @@
     </div>
   </div>
 
-  <!-- Main Content -->
   <div class="page-body">
     <div class="wrap">
 
-      <!-- Two-column row: Payment Options (left) + Graph/Results (right) -->
       <div class="two-col-row">
 
-        <!-- Left: Step 1 -->
         <section class="content-section col-left">
           <div class="section-card h-full">
-           
-
             <fieldset class="options-fieldset">
               <legend class="options-legend">Select your monthly payment option</legend>
               <label class="option-row">
@@ -89,7 +77,6 @@
           </div>
         </section>
 
-        <!-- Right: Step 3 Results + Chart -->
         <section class="content-section col-right">
           <div class="section-card h-full">
             <div class="results-grid" role="status" aria-live="polite">
@@ -105,7 +92,7 @@
             </div>
             <p class="disclaimer">* Assumes a 21% annual interest rate (1.75%/month) and no additional charges to the account.</p>
 
-            <div class="chart-section">
+            <div id="chartSection" class="chart-section">
               <h3 class="chart-title">Cumulative Amount Paid by Month</h3>
               <div class="chart-container">
                 <canvas id="stackedChart"></canvas>
@@ -114,10 +101,7 @@
           </div>
         </section>
 
-      </div><!-- /.two-col-row -->
-
-      <!-- Step 2: Slider Explorer -->
-      <section class="content-section">
+      </div><section id="sliderSection" class="content-section">
         <div class="section-card">
           <p class="slider-intro">Drag the slider to see how different payment amounts change your payoff timeline and total cost.</p>
           <div class="slider-track-area">
@@ -133,7 +117,6 @@
         </div>
       </section>
 
-      <!-- Submit -->
       <section class="submit-section">
         <div class="submit-card">
           <div class="submit-text">
