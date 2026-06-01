@@ -1,6 +1,45 @@
-// --- Session Data Tracking (for research purposes May 2026) ---
+// ─── Study Version Control (MOVED TO TOP) ───────────────────
+const urlParams = new URLSearchParams(window.location.search);
+// Read ?v= from URL; default to Version 2 if missing
+const version = urlParams.get('v') !== null ? parseInt(urlParams.get('v'), 10) : 2; 
+
+console.log("Current detected study condition version:", version);
+
+function applyVersionUI() {
+  const sliderSection = document.getElementById("sliderSection");
+  const chartSection  = document.getElementById("chartSection");
+  const radioOther    = document.querySelector('.option-row--other');
+
+  if (version === 0) {
+    console.log("Applying Version 0: Hiding Slider, Chart, and Custom Input");
+    if (sliderSection) sliderSection.style.setProperty('display', 'none', 'important');
+    if (chartSection)  chartSection.style.setProperty('display', 'none', 'important');
+    if (radioOther)    radioOther.style.setProperty('display', 'none', 'important'); 
+  } 
+  else if (version === 1) {
+    console.log("Applying Version 1: Hiding Chart Only");
+    if (chartSection)  chartSection.style.setProperty('display', 'none', 'important');
+    if (sliderSection) sliderSection.style.removeProperty('display');
+    if (radioOther)    radioOther.style.removeProperty('display');
+  }
+  else {
+    console.log("Applying Version 2: Showing Entire Interface");
+    if (sliderSection) sliderSection.style.removeProperty('display');
+    if (chartSection)  chartSection.style.removeProperty('display');
+    if (radioOther)    radioOther.style.removeProperty('display');
+  }
+}
+
+// Execute visibility adjustments immediately upon DOM parsing
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", applyVersionUI);
+} else {
+  applyVersionUI();
+}
+
+// ─── Session Data Tracking (for research purposes May 2026) ───
 let tracking = {
-startTime: Date.now(),
+  startTime: Date.now(),
   endTime: null,
   completed: false,
   interactionCount: 0,
@@ -62,10 +101,8 @@ function render(payment) {
   if (isNaN(payment) || payment < 0 || payment === "") return;
   const { pay, years, total, months } = compute(payment);
 
-  // 1. Force the slider to match the payment immediately
   paymentRange.value = Math.min(pay, CURRENT_BALANCE).toFixed(2);
 
-  // 2. FIX: Force the custom text input to update if the user is dragging the slider
   const otherRadio = document.querySelector('input[name="payOption"][value="other"]');
   if (!isTyping && otherRadio && otherRadio.checked) {
     paymentInput.value = pay.toFixed(2);
@@ -83,7 +120,7 @@ function render(payment) {
       stackedChart.data.datasets[1].data = [0];
       stackedChart.update();
     }
-    return; // Code exits here for infinite math, but now both inputs are updated!
+    return; 
   }
   
   updateDisplay(pay, total);
@@ -112,7 +149,9 @@ function render(payment) {
 }
 
 function updateCharts(payment) {
+  // Safe exit guard rail mapping
   if (version === 0 || version === 1) return;
+  
   const { pay, years, months } = compute(payment);
   if (!isFinite(years)) return;
   const totalMonths = Math.ceil(months);
@@ -139,7 +178,7 @@ function updateCharts(payment) {
       labels,
       datasets: [
         { label: "Cumulative Interest Paid", data: cumulativeInterest, backgroundColor: "#A7C4B3" },
-{ label: "Cumulative Principal Paid", data: cumulativePrincipal, backgroundColor: "#2E6B4F" }
+        { label: "Cumulative Principal Paid", data: cumulativePrincipal, backgroundColor: "#2E6B4F" }
       ]
     },
     options: {
@@ -219,18 +258,12 @@ document.querySelectorAll('input[name="payOption"]').forEach(radio => {
       const val = +paymentInput.value;
       if (!val) return;
       paymentRange.value = val;
-      
-      // ---> ADD THIS LINE <---
       tracking.allChoices.push(Number(val.toFixed(2)));
-      
       render(val);
     } else {
       const val = +radio.value;
       paymentRange.value = val;
-      
-      // ---> ADD THIS LINE <---
       tracking.allChoices.push(Number(val.toFixed(2)));
-      
       render(val);
     }
   });
@@ -282,26 +315,4 @@ document.getElementById("submitSessionBtn").addEventListener("click", () => {
   const data = getSessionData();
   sendToQualtrics(data);
   downloadSession();
-});
-// ─── Study Version Control ────────────────────────────
-const urlParams = new URLSearchParams(window.location.search);
-// Read ?v= from URL; default to Version 2 if missing
-const version = urlParams.get('v') !== null ? parseInt(urlParams.get('v')) : 2; 
-
-document.addEventListener("DOMContentLoaded", () => {
-  const sliderSection = document.getElementById("sliderSection");
-  const chartSection  = document.getElementById("chartSection");
-  const radioOther    = document.querySelector('.option-row--other');
-
-  if (version === 0) {
-    // Dynamic0: Hide Slider, Hide Chart, and Hide "Custom Amount" radio row
-    if (sliderSection) sliderSection.classList.add("hidden");
-    if (chartSection)  chartSection.classList.add("hidden");
-    if (radioOther)    radioOther.classList.add("hidden"); 
-  } 
-  else if (version === 1) {
-    // Dynamic1: Keep Slider, Hide Chart
-    if (chartSection) chartSection.classList.add("hidden");
-  }
-  // version 2 leaves everything untouched
 });
