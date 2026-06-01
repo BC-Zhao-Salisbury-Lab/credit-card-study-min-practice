@@ -3,109 +3,157 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Credit Card Payment Demo</title>
-
-  <!-- Chart.js Library Dependency -->
+  <title>Credit Card Payment Decision | Consumer Finance Study</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
-  <!-- External Stylesheet -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css"
+  />
+  <head>
+  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" fill="%232E6B4F"><path d="M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H512c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM192 160h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H192c-8.8 0-16-7.2-16-16V176c0-8.8 7.2-16 16-16zm-32 96c0-8.8 7.2-16 16-16H448c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H176c-8.8 0-16-7.2-16-16V256z"/></svg>'>
+</head>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Credit Card Payment Decision</h1>
-    <p class="sub">
-      Click a payment option or move the slider to view the total payoff time and total payment amount. Afterwards, please enter your choice at the bottom of the screen.
-    </p>
-  </header>
 
-  <main class="card" role="region" aria-label="Calculator">
-    <!-- Payment Options -->
-    <section aria-labelledby="options-title">
-      <h2 id="options-title" class="section-title">
-        Monthly Payment Amount Options
-      </h2>
-
-      <div class="options">
-        <label>
-          <input type="radio" name="payOption" value="1836.90">
-          Statement Balance (as of 03/01/2026): $1836.90
-        </label>
-        <label>
-          <input type="radio" name="payOption" value="1875.11">
-          Current Balance: $1875.11
-        </label>
-        <label>
-          <input type="radio" name="payOption" value="38.00">
-          Minimum Payment Due: $38.00
-        </label>
-        <label>
-          <input type="radio" name="payOption" value="other">
-          Other Amount:
-          <input id="paymentInput" type="number" min="0" max="1875.11" step="0.01" placeholder="Enter amount" />
-          <div id="errorMessage" class="error-msg">
-            ⚠️ Payment must be at least $0
-          </div>
-        </label>
+  <!-- Top Navigation Bar -->
+  <nav class="navbar">
+      <div class="nav-brand">
+        <i class="fa-solid fa-piggy-bank" id="logo"></i>
+        <span class="brand-name">My Personal Finances</span>
       </div>
+      <i class="fa-solid fa-bars nav-icon"></i>
+  </nav>
 
-      <!-- Slider section with extra spacing -->
-      <div style="margin-top: 24px;">
-        <h2 class="section-title">
-          Use the Slider to View Details of Your Payment
-        </h2>
-        <div class="slider-box-plain">
-          <p>
-            If you pay <strong>$<span id="descPayment">-</span></strong> each month and make no new charges,
-            you will pay off your current balance in <strong><span id="descYears">—</span></strong>,
-            for a total payment of <strong>$<span id="descTotal">—</span></strong>.
-          </p>
-          <input id="paymentRange" type="range" min="0" max="1875.11" step="0.01" value="38" />
-        </div>
+  <!-- Hero Banner -->
+  <div class="hero-bar">
+    <div class="hero-inner">
+      <i class="fa-solid fa-credit-card hero-icon"></i>
+      <div class="hero-text">
+        <h1 class="hero-title">Monthly Payment Decision Tool</h1>
+        <p class="hero-sub">Review the payment options below, explore how each choice affects your payoff timeline, then submit your decision at the bottom of this page.</p>
       </div>
-    </section>
-
-    <!-- Results -->
-    <section aria-labelledby="results-title">
-      <h2 id="results-title" class="section-title-results">
-        Estimated Payoff Summary
-      </h2>
-      <div class="results" role="status" aria-live="polite">
-        <div class="stat">
-          <div class="k">Estimated Time to Pay Off</div>
-          <div class="v" id="yearsOut">—</div>
-        </div>
-        <div class="stat">
-          <div class="k">Total Amount Paid (Principal + Interest)</div>
-          <div class="v" id="totalOut">—</div>
-        </div>
-      </div>
-      <p class="disclaimer">
-        *Calculations assume a 21% annual interest rate and no additional charges.
-      </p>
-
-       <!-- Graphs -->
-      <div class="graph-section">
-        <h3 class="graph-title">Cumulative Amount Paid (Principal + Interest) by Month</h3>
-        <div class="chart-wrap">
-          <div class="chart-box">
-              <canvas id="stackedChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Submit Session Action Area -->
-  <div class="submit-box">
-    <button id="submitSessionBtn" class="btn-submit">Submit Choice & Save Session</button>
+    </div>
   </div>
 
-  <footer>Demo Website for Research Use Only</footer>
-</div>
+  <!-- Main Content -->
+  <div class="page-body">
+    <div class="wrap">
 
-<!-- External JavaScript Amortization Logic -->
+      <!-- Two-column row: Payment Options (left) + Graph/Results (right) -->
+      <div class="two-col-row">
+
+        <!-- Left: Step 1 -->
+        <section class="content-section col-left">
+          <div class="section-card h-full">
+           
+
+            <fieldset class="options-fieldset">
+              <legend class="options-legend">Select your monthly payment option</legend>
+              <label class="option-row">
+                <input type="radio" name="payOption" value="1836.90">
+                <div class="option-content">
+                  <span class="option-title">Pay Statement Balance</span>
+                  <span class="option-desc">$1,836.90 &mdash; Clears charges from last billing cycle</span>
+                </div>
+              </label>
+              <label class="option-row">
+                <input type="radio" name="payOption" value="1875.11">
+                <div class="option-content">
+                  <span class="option-title">Pay Current Balance in Full</span>
+                  <span class="option-desc">$1,875.11 &mdash; Pays off everything including recent charges</span>
+                </div>
+              </label>
+              <label class="option-row">
+                <input type="radio" name="payOption" value="38.00">
+                <div class="option-content">
+                  <span class="option-title">Pay Minimum Amount Due</span>
+                  <span class="option-desc">$38.00 &mdash; The required minimum to avoid a late fee</span>
+                </div>
+              </label>
+              <label class="option-row option-row--other">
+                <input type="radio" name="payOption" value="other">
+                <div class="option-content">
+                  <span class="option-title">Enter a Custom Amount</span>
+                  <div class="custom-input-wrap">
+                    <span class="dollar-sign">$</span>
+                    <input id="paymentInput" type="number" min="-1" max="1875.11" step="0.01" placeholder="0.00" />
+                  </div>
+                  <div id="errorMessage" class="error-msg">&#9888; Payment must be at least $0</div>
+                </div>
+              </label>
+            </fieldset>
+          </div>
+        </section>
+
+        <!-- Right: Step 3 Results + Chart -->
+        <section class="content-section col-right">
+          <div class="section-card h-full">
+            <div class="results-grid" role="status" aria-live="polite">
+              <div class="result-card">
+                <div class="result-label">Time to Pay Off</div>
+                <div class="result-value" id="yearsOut">—</div>
+              </div>
+              <div class="result-card result-card--total">
+                <div class="result-label">Total Amount Paid</div>
+                <div class="result-value" id="totalOut">—</div>
+                <div class="result-sub">Principal + Interest</div>
+              </div>
+            </div>
+            <p class="disclaimer">* Assumes a 21% annual interest rate (1.75%/month) and no additional charges to the account.</p>
+
+            <div class="chart-section">
+              <h3 class="chart-title">Cumulative Amount Paid by Month</h3>
+              <div class="chart-container">
+                <canvas id="stackedChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /.two-col-row -->
+
+      <!-- Step 2: Slider Explorer -->
+      <section class="content-section">
+        <div class="section-card">
+          <p class="slider-intro">Drag the slider to see how different payment amounts change your payoff timeline and total cost.</p>
+          <div class="slider-track-area">
+            <div class="slider-labels">
+              <span>$0</span>
+              <span>$1,875.11 (Full)</span>
+            </div>
+            <input id="paymentRange" type="range" min="0" max="1875.11" step="0.01" value="38" />
+          </div>
+          <div class="scenario-callout">
+            If you pay <strong>$<span id="descPayment">—</span></strong> per month with no new charges, you will pay off your balance in <strong><span id="descYears">—</span></strong>, for a total of <strong>$<span id="descTotal">—</span></strong>.
+          </div>
+        </div>
+      </section>
+
+      <!-- Submit -->
+      <section class="submit-section">
+        <div class="submit-card">
+          <div class="submit-text">
+            <strong>Ready to submit?</strong> Once you click below, your session data will be recorded and downloaded. This action cannot be undone.
+          </div>
+          <button id="submitSessionBtn" class="btn-submit">Submit My Choice &amp; Save Session &rarr;</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>Credit Card Study</span>
+      <span class="footer-sep">|</span>
+      <span>Boston College</span>
+    </div>
+  </footer>
+
 <script src="script.js"></script>
 </body>
 </html>
