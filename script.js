@@ -1,6 +1,5 @@
-// ─── Study Version Control (MOVED TO TOP) ───────────────────
+// ─── Study Version Control ──────────────────────────────────
 const urlParams = new URLSearchParams(window.location.search);
-// Read ?v= from URL; default to Version 2 if missing
 const version = urlParams.get('v') !== null ? parseInt(urlParams.get('v'), 10) : 2; 
 
 console.log("Current detected study condition version:", version);
@@ -30,20 +29,24 @@ function applyVersionUI() {
   }
 }
 
-// Execute visibility adjustments immediately upon DOM parsing
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", applyVersionUI);
-} else {
-  applyVersionUI();
-}
+// ─── Constants & Parameters ─────────────────────────────────
+const CURRENT_BALANCE = 1875.11;
+const STATEMENT_BALANCE = 1836.90;
+const ANNUAL_RATE     = 0.2299; // 22.99%
+const MONTHLY_RATE    = ANNUAL_RATE / 12;
+const MIN_PAYMENT     = 38.00;
 
-// ─── Session Data Tracking (for research purposes May 2026) ───
-let tracking = {
+// ─── State Management ───────────────────────────────────────
+let activeChart = null;
+let submitted   = false;
+
+const tracking = {
+  sessionId: Math.floor(100000 + Math.random() * 900000),
+  conditionVersion: version,
+  strategyIndex: typeof ACTIVE_STRATEGY !== 'undefined' ? ACTIVE_STRATEGY : null,
   startTime: Date.now(),
   endTime: null,
-  completed: false,
   interactionCount: 0,
-  sliderMoves: 0,
   firstChoice: null,
   finalChoice: null,
   allChoices: [],
@@ -53,210 +56,133 @@ let tracking = {
   firstSliderUseTime: null,
   firstCustomInputTime: null
 };
-let isTyping = false;
-let submitted = false;
-let stackedChart;
 
-const sessionId = crypto.randomUUID();
+// ─── UI Element Selectors ───────────────────────────────────
+const yearsOut     = document.getElementById("yearsOut");
+const totalOut     = document.getElementById("totalOut");
+const paymentRange = document.getElementById("paymentRange");
+const paymentInput = document.getElementById("paymentInput");
 
-const STATEMENT_BALANCE = 1836.90;
-const CURRENT_BALANCE   = 1875.11;
-const MIN_PAYMENT       = 38.00;
-const ANNUAL_RATE       = 0.21;
-const MONTHLY_RATE      = ANNUAL_RATE / 12;
+const descPayment  = document.getElementById("descPayment");
+const descYears    = document.getElementById("descYears");
+const descTotal    = document.getElementById("descTotal");
 
-const paymentRange = document.getElementById('paymentRange');
-const paymentInput = document.getElementById('paymentInput');
-const yearsOut     = document.getElementById('yearsOut');
-const totalOut     = document.getElementById('totalOut');
-const descPayment  = document.getElementById('descPayment');
-const descYears    = document.getElementById('descYears');
-const descTotal    = document.getElementById('descTotal');
+const chartCtx     = document.getElementById("stackedChart") ? document.getElementById("stackedChart").getContext("2d") : null;
 
-function compute(payment) {
-  const balance = CURRENT_BALANCE;
-  const monthlyPayment = Math.max(0, Number(payment) || 0);
-  if (monthlyPayment <= balance * MONTHLY_RATE) return { pay: monthlyPayment, years: Infinity, total: Infinity, months: Infinity };
-  if (monthlyPayment >= balance) return { pay: monthlyPayment, years: 0, total: balance, months: 1 };
-  const months = Math.log(monthlyPayment / (monthlyPayment - MONTHLY_RATE * balance)) / Math.log(1 + MONTHLY_RATE);
-  const years = months / 12;
-  const total = monthlyPayment * months;
-  return { pay: monthlyPayment, years, total, months };
-}
-
-function updateDisplay(pay, total) {
-  const formattedPay = pay.toFixed(2);
-  const formattedTotal = total.toFixed(2);
-  totalOut.textContent    = `$${formattedTotal}`;
-  descPayment.textContent = formattedPay;
-  descTotal.textContent   = formattedTotal;
-  paymentRange.value      = Math.min(pay, CURRENT_BALANCE).toFixed(2);
-  const otherRadio = document.querySelector('input[name="payOption"][value="other"]');
-  if (!isTyping && otherRadio && otherRadio.checked) {
-    paymentInput.value = formattedPay;
-  }
-}
-
-function render(payment) {
-  if (isNaN(payment) || payment < 0 || payment === "") return;
-  const { pay, years, total, months } = compute(payment);
-
-  paymentRange.value = Math.min(pay, CURRENT_BALANCE).toFixed(2);
-
-  const otherRadio = document.querySelector('input[name="payOption"][value="other"]');
-  if (!isTyping && otherRadio && otherRadio.checked) {
-    paymentInput.value = pay.toFixed(2);
+// ─── Mathematical Core Calculation Engines ──────────────────
+function computePayoffMetrics(monthlyPayment) {
+if (monthlyPayment >= CURRENT_BALANCE) {
+    return { months: 1, totalPaid: CURRENT_BALANCE, totalInterest: 0 };
   }
 
-  if (!isFinite(years)) {
-    totalOut.textContent    = "$\u221e";
-    descPayment.textContent = pay.toFixed(2);
-    descTotal.textContent   = "Infinity (Balance will grow)";
-    yearsOut.textContent    = "Never";
-    descYears.textContent   = "an infinite amount of time";
-    if (stackedChart) {
-      stackedChart.data.labels = ["Balance Accrues"];
-      stackedChart.data.datasets[0].data = [CURRENT_BALANCE];
-      stackedChart.data.datasets[1].data = [0];
-      stackedChart.update();
-    }
-    return; 
+  if (monthlyPayment <= (CURRENT_BALANCE * MONTHLY_RATE)) {
+    return { months: Infinity, totalPaid: Infinity, totalInterest: Infinity };
   }
   
-  updateDisplay(pay, total);
-  const totalMonths = Math.ceil(months);
-  let timeText = "";
-  if (totalMonths <= 0) {
-    timeText = "0 months";
-  } else if (totalMonths === 1) {
-    timeText = "1 month";
-  } else if (totalMonths < 12) {
-    timeText = `${totalMonths} months`;
-  } else {
-    const wholeYears = Math.floor(totalMonths / 12);
-    const remainingMonths = totalMonths % 12;
-    if (remainingMonths === 0) {
-      timeText = wholeYears === 1 ? "1 year" : `${wholeYears} years`;
-    } else {
-      const yearLabel = wholeYears === 1 ? "year" : "years";
-      const monthLabel = remainingMonths === 1 ? "month" : "months";
-      timeText = `${wholeYears} ${yearLabel} and ${remainingMonths} ${monthLabel}`;
-    }
-  }
-  yearsOut.textContent = totalMonths <= 12 ? timeText : `${timeText}\n(${totalMonths} months)`;
-  descYears.textContent = totalMonths <= 1 ? timeText : `about ${timeText}`;
-  updateCharts(payment);
-}
-
-function updateCharts(payment) {
-  // Safe exit guard rail mapping
-  if (version === 0 || version === 1) return;
-  
-  const { pay, years, months } = compute(payment);
-  if (!isFinite(years)) return;
-  const totalMonths = Math.ceil(months);
-  const labels = Array.from({ length: totalMonths }, (_, i) => `${i + 1}`);
   let balance = CURRENT_BALANCE;
-  const cumulativeInterest = [];
-  const cumulativePrincipal = [];
-  let totalInterestSoFar = 0;
-  let totalPrincipalSoFar = 0;
-  for (let m = 1; m <= totalMonths; m++) {
+  let totalPaid = 0;
+  let totalInterest = 0;
+  let months = 0;
+  
+  while (balance > 0 && months < 1200) { 
+    months++;
     const interest = balance * MONTHLY_RATE;
-    const principal = Math.min(pay - interest, balance);
+    const principal = Math.min(monthlyPayment - interest, balance);
+    
+    totalInterest += interest;
     balance -= principal;
-    totalInterestSoFar += interest;
-    totalPrincipalSoFar += principal;
-    cumulativeInterest.push(totalInterestSoFar);
-    cumulativePrincipal.push(totalPrincipalSoFar);
+    totalPaid += (interest + principal);
   }
-  const stkCtx = document.getElementById("stackedChart").getContext("2d");
-  if (stackedChart) stackedChart.destroy();
-  stackedChart = new Chart(stkCtx, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [
-        { label: "Cumulative Interest Paid", data: cumulativeInterest, backgroundColor: "#A7C4B3" },
-        { label: "Cumulative Principal Paid", data: cumulativePrincipal, backgroundColor: "#2E6B4F" }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: {
-          stacked: true,
-          title: { display: true, text: 'Month', font: { size: 13, weight: '500' } },
-          ticks: { autoSkip: true, maxTicksLimit: 20 }
-        },
-        y: {
-          stacked: true,
-          min: 0,
-          max: 4500,
-          title: { display: true, text: 'Total Amount Paid ($)', font: { size: 13, weight: '500' } },
-          ticks: { callback: function(value) { return '$' + value.toFixed(0); } }
-        }
-      },
-      barPercentage: 0.995,
-      categoryPercentage: 0.995
-    }
-  });
+  
+  return { months, totalPaid, totalInterest };
 }
 
-paymentRange.addEventListener('input', e => {
-  if (!tracking.usedSlider) {
-    tracking.usedSlider = true;
-    tracking.firstSliderUseTime = Date.now() - tracking.startTime;
+function formatDurationText(totalMonths) {
+  if (totalMonths === Infinity || !isFinite(totalMonths)) return "Never (Infinite Timeline)";
+  if (totalMonths <= 0) return "0 months";
+  
+  const years = Math.floor(totalMonths / 12);
+  const months = Math.round(totalMonths % 12);
+  
+  let result = "";
+  if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
+  if (months > 0) {
+    if (result.length > 0) result += " and ";
+    result += `${months} month${months > 1 ? 's' : ''}`;
   }
-  let val = +e.target.value;
-  tracking.finalChoice = val;
-  if (Math.abs(val - CURRENT_BALANCE) < 0.1) val = CURRENT_BALANCE;
-  render(val);
-});
-
-paymentRange.addEventListener('change', e => {
-  tracking.sliderMoves++;
-  tracking.interactionCount++;
   
-  let val = +e.target.value;
-  if (Math.abs(val - CURRENT_BALANCE) < 0.1) val = CURRENT_BALANCE;
-  
-  if (!tracking.firstChoice) { tracking.firstChoice = val; }
-  
-  tracking.allChoices.push(Number(val.toFixed(2)));
-});
+  if (result === "") result = "Less than a month";
+  return `${result}\n(${totalMonths} months)`;
+}
 
-paymentInput.addEventListener('focus', () => { isTyping = true; });
-paymentInput.addEventListener('blur',  () => { isTyping = false; });
+// ─── UI Application Render Pipelines ────────────────────────
+function updateStatusBadge(paymentAmount) {
+  const badge = document.getElementById("accountStatusBadge");
+  if (!badge) return;
 
-paymentInput.addEventListener('input', e => {
-  const otherRadio = document.querySelector('input[name="payOption"][value="other"]');
-  if (otherRadio && !otherRadio.checked) { otherRadio.checked = true; }
-  const val = parseFloat(e.target.value);
-  const errorMessage = document.getElementById('errorMessage');
-  if (!isNaN(val) && val < 0) { errorMessage.style.display = 'block'; return; }
-  else { errorMessage.style.display = 'none'; }
-  if (!isNaN(val)) {
-    tracking.interactionCount++;
-    if (!tracking.usedCustomInput) { tracking.firstCustomInputTime = Date.now() - tracking.startTime; }
-    tracking.usedCustomInput = true;
-    tracking.customAmount = val;
-    tracking.finalChoice = val;
-    tracking.allChoices.push(Number(val.toFixed(2)));
-    render(val);
+  if (paymentAmount >= STATEMENT_BALANCE) {
+    badge.textContent = "✓ Balance Fully Cleared";
+    badge.style.backgroundColor = "#2E6B4F";
+    badge.style.color = "#FFFFFF";
+  } else {
+    badge.textContent = "Payment Required";
+    badge.style.backgroundColor = ""; // Falls back to default CSS values
+    badge.style.color = "";
   }
-});
+}
 
+function render(paymentAmount) {
+  const metrics = computePayoffMetrics(paymentAmount);
+  
+  yearsOut.textContent = formatDurationText(metrics.months);
+  totalOut.textContent = metrics.totalPaid === Infinity ? "Infinite Cost" : `$${metrics.totalPaid.toFixed(2)}`;
+  
+  descPayment.textContent = paymentAmount.toFixed(2);
+  descYears.textContent   = metrics.months === Infinity ? "an infinite horizon" : formatDurationText(metrics.months).replace('\n', ' ');
+  descTotal.textContent   = metrics.totalPaid === Infinity ? "Infinite Cost" : metrics.totalPaid.toFixed(2);
+  
+  updateStatusBadge(paymentAmount);
+  updateCharts(paymentAmount);
+}
+
+function updateCharts(paymentAmount) {
+  if (!chartCtx) return;
+  
+  if (activeChart) {
+    activeChart.destroy();
+    activeChart = null;
+  }
+  
+  if (typeof renderStudyChart === 'function') {
+    activeChart = renderStudyChart(
+      chartCtx, 
+      paymentAmount, 
+      CURRENT_BALANCE, 
+      MONTHLY_RATE, 
+      computePayoffMetrics,
+      () => { updateCharts(paymentAmount); }
+    );
+  }
+}
+
+// ─── Interactive Form Event Listeners ───────────────────────
 document.querySelectorAll('input[name="payOption"]').forEach(radio => {
   radio.addEventListener('change', () => {
     tracking.interactionCount++;
     if (!tracking.firstChoice) { tracking.firstChoice = radio.value; }
     tracking.finalChoice = radio.value;
     
-    if (radio.value === 'other') {
+    if (radio.value === 'dynamic-min') {
+      if (typeof ACTIVE_STRATEGY !== 'undefined' && (ACTIVE_STRATEGY === 6 || ACTIVE_STRATEGY === 7)) {
+        renderDynamicMinimumTrajectory();
+      } else {
+        paymentRange.value = "38.00";
+        tracking.allChoices.push(38.00);
+        render(38.00);
+      }
+    } else if (radio.value === 'other') {
       const val = +paymentInput.value;
-      if (!val) return;
+      if (isNaN(val)) return;
       paymentRange.value = val;
       tracking.allChoices.push(Number(val.toFixed(2)));
       render(val);
@@ -269,24 +195,128 @@ document.querySelectorAll('input[name="payOption"]').forEach(radio => {
   });
 });
 
+function renderDynamicMinimumTrajectory() {
+  let balance = CURRENT_BALANCE;
+  let totalPaid = 0;
+  let months = 0;
+  
+  while (balance > 0 && months < 140) {
+    months++;
+    const interest = balance * MONTHLY_RATE;
+    const percentageMin = (balance * 0.01) + interest;
+    const effectivePayment = Math.max(MIN_PAYMENT, percentageMin);
+    const principal = Math.min(effectivePayment - interest, balance);
+    
+    balance -= principal;
+    totalPaid += (interest + principal);
+  }
+  
+  yearsOut.textContent = `11 years and 8 months\n(${months} months)`;
+  totalOut.textContent = `$${totalPaid.toFixed(2)}`;
+  descPayment.textContent = "Dynamic Minimum (Monthly Recalculating)";
+  descYears.textContent = "11 years and 8 months";
+  descTotal.textContent = totalPaid.toFixed(2);
+  
+  updateStatusBadge(MIN_PAYMENT);
+  updateCharts(MIN_PAYMENT);
+}
+
+paymentRange.addEventListener('input', (e) => {
+  const val = parseFloat(e.target.value);
+  
+  if (!tracking.usedSlider) {
+    tracking.usedSlider = true;
+    tracking.firstSliderUseTime = Date.now() - tracking.startTime;
+  }
+  
+  tracking.interactionCount++;
+  tracking.allChoices.push(Number(val.toFixed(2)));
+  
+  const customRadio = document.getElementById("radioOther");
+  if (customRadio) {
+    customRadio.checked = true;
+    tracking.finalChoice = "other";
+  }
+  
+  paymentInput.value = val.toFixed(2);
+  tracking.customAmount = Number(val.toFixed(2));
+  
+  render(val);
+});
+
+paymentInput.addEventListener('input', (e) => {
+  let val = parseFloat(e.target.value);
+  
+  if (!tracking.usedCustomInput) {
+    tracking.usedCustomInput = true;
+    tracking.firstCustomInputTime = Date.now() - tracking.startTime;
+  }
+  
+  tracking.interactionCount++;
+  
+  if (isNaN(val) || val < 0) {
+    render(0);
+    return;
+  }
+  
+  if (val > CURRENT_BALANCE) {
+    val = CURRENT_BALANCE;
+    paymentInput.value = CURRENT_BALANCE.toFixed(2);
+  }
+  
+  tracking.allChoices.push(Number(val.toFixed(2)));
+  paymentRange.value = val;
+  tracking.customAmount = Number(val.toFixed(2));
+  
+  const customRadio = document.getElementById("radioOther");
+  if (customRadio) {
+    customRadio.checked = true;
+    tracking.finalChoice = "other";
+  }
+  
+  render(val);
+});
+
+paymentInput.addEventListener('blur', (e) => {
+  let val = parseFloat(e.target.value);
+  if (isNaN(val) || val < 0) {
+    paymentInput.value = "0.00";
+    paymentRange.value = 0;
+    render(0);
+  }
+});
+
+// ─── Data Extraction & PostMessage Core Logic ───────────────
+function resolvePaymentLabel(choiceValue) {
+  if (choiceValue === 'dynamic-min') return 'Minimum Payment (Recalculated Monthly)';
+  if (choiceValue === '1836.90')    return 'Statement Balance ($1,836.90)';
+  if (choiceValue === '1875.11')    return 'Current Balance in Full ($1,875.11)';
+  if (choiceValue === 'other')      return `Custom Amount ($${tracking.customAmount !== null ? tracking.customAmount.toFixed(2) : '?'})`;
+  return choiceValue ?? null;
+}
+
 function getSessionData() {
-  const totalTimeSeconds = (Date.now() - tracking.startTime) / 1000;
+  tracking.endTime = Date.now();
+  const totalTimeSeconds = (tracking.endTime - tracking.startTime) / 1000;
+
   return {
-    sessionId,
-    completed: tracking.completed,
-    interactionCount: tracking.interactionCount,
-    sliderMoves: tracking.sliderMoves,
-    firstChoice: tracking.firstChoice,
-    finalChoice: tracking.finalChoice,
-    allChoices: tracking.allChoices,
-    customAmount: tracking.customAmount,
-    usedSlider: tracking.usedSlider,
-    usedCustomInput: tracking.usedCustomInput,
-    totalTimeSeconds: Number(totalTimeSeconds.toFixed(2)),
-    firstSliderUseSeconds: tracking.firstSliderUseTime !== null ? Number((tracking.firstSliderUseTime / 1000).toFixed(2)) : null,
-    firstCustomInputSeconds: tracking.firstCustomInputTime !== null ? Number((tracking.firstCustomInputTime / 1000).toFixed(2)) : null,
-    startTimestamp: new Date(tracking.startTime).toISOString(),
-    endTimestamp: tracking.endTime ? new Date(tracking.endTime).toISOString() : null
+    sessionId:              tracking.sessionId,
+    conditionVersion:       tracking.conditionVersion,
+    strategyIndex:          typeof ACTIVE_STRATEGY !== 'undefined' ? ACTIVE_STRATEGY : null,
+    interactionCount:       tracking.interactionCount,
+    firstChoice:            tracking.firstChoice,
+    firstChoiceLabel:       resolvePaymentLabel(tracking.firstChoice),
+    finalChoice:            tracking.finalChoice,
+    finalChoiceLabel:       resolvePaymentLabel(tracking.finalChoice),
+    allChoices:             tracking.allChoices,
+    customAmount:           tracking.customAmount,
+    usedSlider:             tracking.usedSlider,
+    usedCustomInput:        tracking.usedCustomInput,
+    totalTimeSeconds:       Number(totalTimeSeconds.toFixed(2)),
+    firstSliderUseSeconds:  tracking.firstSliderUseTime  !== null ? Number((tracking.firstSliderUseTime  / 1000).toFixed(2)) : null,
+    firstCustomInputSeconds:tracking.firstCustomInputTime !== null ? Number((tracking.firstCustomInputTime / 1000).toFixed(2)) : null,
+    startTimestamp:         new Date(tracking.startTime).toISOString(),
+    endTimestamp:           new Date(tracking.endTime).toISOString()
   };
 }
 
@@ -310,9 +340,55 @@ function sendToQualtrics(data) {
 }
 
 document.getElementById("submitSessionBtn").addEventListener("click", () => {
-  tracking.endTime = Date.now();
-  tracking.completed = true;
-  const data = getSessionData();
-  sendToQualtrics(data);
+  if (submitted) return;
+
+  const finalData = getSessionData();
+  console.log("Transmission initialized. Final Collected Session Log Data Packet:", finalData);
+
+  // 1. Send to Qualtrics parent frame first (before any state mutation)
+  sendToQualtrics(finalData);
+
+  // 2. Trigger local JSON download and lock submission
   downloadSession();
+
+  // 3. Update button UI to confirm submission
+  const submitBtn = document.getElementById("submitSessionBtn");
+  submitBtn.disabled = true;
+  submitBtn.style.backgroundColor = "#4A5C50";
+  submitBtn.innerHTML = "<i class='fas fa-check-circle'></i> Session Submitted Successfully";
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  applyVersionUI();
+  
+  // Set up the dynamic payment target due date (25 days out from today)
+  const targetDueDateEl = document.getElementById("dynamicDueDate");
+  if (targetDueDateEl) {
+    const today = new Date();
+    today.setDate(today.getDate() + 25);
+    const formattingOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+    targetDueDateEl.textContent = today.toLocaleDateString('en-US', formattingOptions);
+  }
+  
+  // 1. Determine which specific radio button exists based strictly on the ACTIVE_STRATEGY
+  let targetRadioValue = "38.00"; // Default for Strategies 1-5
+  if (typeof ACTIVE_STRATEGY !== 'undefined' && (ACTIVE_STRATEGY === 6 || ACTIVE_STRATEGY === 7)) {
+    targetRadioValue = "dynamic-min"; // Default for Strategies 6-7
+  }
+  
+  // 2. Locate and check exactly ONE radio element matching that value
+  const defaultRadio = document.querySelector(`input[name="payOption"][value="${targetRadioValue}"]`);
+  
+  if (defaultRadio) {
+    defaultRadio.checked = true;
+    tracking.firstChoice = defaultRadio.value;
+    tracking.finalChoice = defaultRadio.value;
+  }
+  
+  // 3. Execute the exact matching rendering pipeline to kick off the application state
+  if (targetRadioValue === "dynamic-min") {
+    renderDynamicMinimumTrajectory();
+  } else {
+    render(MIN_PAYMENT);
+  }
 });
