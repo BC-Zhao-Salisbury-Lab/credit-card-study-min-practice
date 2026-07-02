@@ -59,60 +59,82 @@ const tracking = {
 
 // ─── UI Element Selectors ───────────────────────────────────
 const yearsOut     = document.getElementById("yearsOut");
+const interestOut  = document.getElementById("interestOut");
 const totalOut     = document.getElementById("totalOut");
 const paymentRange = document.getElementById("paymentRange");
 const paymentInput = document.getElementById("paymentInput");
 
-const descPayment  = document.getElementById("descPayment");
-const descYears    = document.getElementById("descYears");
-const descTotal    = document.getElementById("descTotal");
+const descPayment        = document.getElementById("descPayment");
+const descYears          = document.getElementById("descYears");
+const descTotal          = document.getElementById("descTotal");
+const descAccruedInterest = document.getElementById("descAccruedInterest");
 
 const chartCtx     = document.getElementById("stackedChart") ? document.getElementById("stackedChart").getContext("2d") : null;
 
 // ─── Mathematical Core Calculation Engines ──────────────────
 function computePayoffMetrics(monthlyPayment) {
-if (monthlyPayment >= CURRENT_BALANCE) {
-    return { months: 1, totalPaid: CURRENT_BALANCE, totalInterest: 0 };
+  // "Paid off" is defined as clearing the statement balance ($1,836.90).
+  // The remaining $38.21 (current minus statement) is a separate future obligation
+  // and is shown as a note on charts but excluded from these calculations.
+
+  if (monthlyPayment >= STATEMENT_BALANCE) {
+    return { months: 1, totalPaid: STATEMENT_BALANCE, totalInterest: 0 };
   }
 
-  if (monthlyPayment <= (CURRENT_BALANCE * MONTHLY_RATE)) {
+  if (monthlyPayment <= (STATEMENT_BALANCE * MONTHLY_RATE)) {
     return { months: Infinity, totalPaid: Infinity, totalInterest: Infinity };
   }
-  
-  let balance = CURRENT_BALANCE;
+
+  let balance = STATEMENT_BALANCE;
   let totalPaid = 0;
   let totalInterest = 0;
   let months = 0;
-  
-  while (balance > 0 && months < 1200) { 
+
+  while (balance > 0 && months < 1200) {
     months++;
     const interest = balance * MONTHLY_RATE;
     const principal = Math.min(monthlyPayment - interest, balance);
-    
+
     totalInterest += interest;
-    balance -= principal;
-    totalPaid += (interest + principal);
+    balance       -= principal;
+    totalPaid     += (interest + principal);
   }
-  
+
   return { months, totalPaid, totalInterest };
 }
 
 function formatDurationText(totalMonths) {
-  if (totalMonths === Infinity || !isFinite(totalMonths)) return "Never (Infinite Timeline)";
+  // Short form for summary cards — fits on one line
+  if (totalMonths === Infinity || !isFinite(totalMonths)) return "Never";
   if (totalMonths <= 0) return "0 months";
-  
-  const years = Math.floor(totalMonths / 12);
+
+  const years  = Math.floor(totalMonths / 12);
   const months = Math.round(totalMonths % 12);
-  
+
   let result = "";
-  if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
+  if (years  > 0) result += `${years} yr${years  > 1 ? "s" : ""}`;
+  if (months > 0) {
+    if (result.length > 0) result += " ";
+    result += `${months} mo`;
+  }
+  return result || "< 1 month";
+}
+
+function formatDurationLong(totalMonths) {
+  // Long form for slider callout — full words, month count in parens
+  if (totalMonths === Infinity || !isFinite(totalMonths)) return "an infinite horizon";
+  if (totalMonths <= 0) return "0 months";
+
+  const years  = Math.floor(totalMonths / 12);
+  const months = Math.round(totalMonths % 12);
+
+  let result = "";
+  if (years  > 0) result += `${years} year${years  > 1 ? "s" : ""}`;
   if (months > 0) {
     if (result.length > 0) result += " and ";
-    result += `${months} month${months > 1 ? 's' : ''}`;
+    result += `${months} month${months > 1 ? "s" : ""}`;
   }
-  
-  if (result === "") result = "Less than a month";
-  return `${result}\n(${totalMonths} months)`;
+  return (result || "less than a month") + ` (${totalMonths} months)`;
 }
 
 // ─── UI Application Render Pipelines ────────────────────────
@@ -132,36 +154,56 @@ function updateStatusBadge(paymentAmount) {
 }
 
 function render(paymentAmount) {
+  if (typeof _animateNext !== 'undefined') _animateNext = true; // radio/init always animate
   const metrics = computePayoffMetrics(paymentAmount);
-  
-  yearsOut.textContent = formatDurationText(metrics.months);
-  totalOut.textContent = metrics.totalPaid === Infinity ? "Infinite Cost" : `$${metrics.totalPaid.toFixed(2)}`;
-  
+  const isInfinite = !isFinite(metrics.totalPaid);
+
+  // ── Three summary cards ──────────────────────────────────
+  yearsOut.textContent = isInfinite ? "Never" : formatDurationText(metrics.months);
+  if (interestOut) interestOut.textContent = isInfinite ? "Infinite" : `$${metrics.totalInterest.toFixed(2)}`;
+  totalOut.textContent = isInfinite ? "Infinite" : `$${metrics.totalPaid.toFixed(2)}`;
+
+  // ── Slider callout sentence ──────────────────────────────
   descPayment.textContent = paymentAmount.toFixed(2);
-  descYears.textContent   = metrics.months === Infinity ? "an infinite horizon" : formatDurationText(metrics.months).replace('\n', ' ');
-  descTotal.textContent   = metrics.totalPaid === Infinity ? "Infinite Cost" : metrics.totalPaid.toFixed(2);
-  
+  descYears.textContent   = isInfinite ? "an infinite horizon" : formatDurationLong(metrics.months);
+  if (descAccruedInterest) descAccruedInterest.textContent = isInfinite ? "an ever-growing amount" : metrics.totalInterest.toFixed(2);
+  descTotal.textContent   = isInfinite ? "Infinite" : metrics.totalPaid.toFixed(2);
+
   updateStatusBadge(paymentAmount);
   updateCharts(paymentAmount);
 }
 
-function updateCharts(paymentAmount) {
+function updateCharts(paymentAmount, animate = true) {
   if (!chartCtx) return;
-  
-  if (activeChart) {
-    activeChart.destroy();
-    activeChart = null;
-  }
-  
+
+  // Tell visualizations.js whether to animate (shared global, declared there)
+  if (typeof _animateNext !== 'undefined') _animateNext = animate;
+
   if (typeof renderStudyChart === 'function') {
-    activeChart = renderStudyChart(
-      chartCtx, 
-      paymentAmount, 
-      CURRENT_BALANCE, 
-      MONTHLY_RATE, 
+    const result = renderStudyChart(
+      chartCtx,
+      paymentAmount,
+      CURRENT_BALANCE,
+      STATEMENT_BALANCE,
+      MONTHLY_RATE,
       computePayoffMetrics,
-      () => { updateCharts(paymentAmount); }
+      () => { updateCharts(paymentAmount, true); },
+      activeChart  // pass existing chart for in-place update
     );
+
+    // Only replace activeChart reference if a new instance was returned
+    // (result is null on infinite overlay, or a chart instance)
+    if (result !== activeChart) {
+      if (activeChart && result === null) {
+        // Infinite state — destroy since overlay takes over
+        activeChart.destroy();
+        activeChart = null;
+      } else if (result !== null) {
+        // Fresh chart was created (first load or type change)
+        if (activeChart) activeChart.destroy();
+        activeChart = result;
+      }
+    }
   }
 }
 
@@ -196,27 +238,32 @@ document.querySelectorAll('input[name="payOption"]').forEach(radio => {
 });
 
 function renderDynamicMinimumTrajectory() {
-  let balance = CURRENT_BALANCE;
+  // Start from statement balance — same payoff target as computePayoffMetrics
+  let balance = STATEMENT_BALANCE;
   let totalPaid = 0;
+  let totalInterest = 0;
   let months = 0;
-  
-  while (balance > 0 && months < 140) {
+
+  while (balance > 0 && months < 1200) {
     months++;
     const interest = balance * MONTHLY_RATE;
-    const percentageMin = (balance * 0.01) + interest;
-    const effectivePayment = Math.max(MIN_PAYMENT, percentageMin);
+    const newBalance = balance + interest;
+    const effectivePayment = Math.max(20.00, newBalance * 0.02);
     const principal = Math.min(effectivePayment - interest, balance);
-    
-    balance -= principal;
-    totalPaid += (interest + principal);
+
+    balance       -= principal;
+    totalInterest += interest;
+    totalPaid     += (interest + principal);
   }
-  
-  yearsOut.textContent = `11 years and 8 months\n(${months} months)`;
+
+  yearsOut.textContent = formatDurationText(months);
+  if (interestOut) interestOut.textContent = `$${totalInterest.toFixed(2)}`;
   totalOut.textContent = `$${totalPaid.toFixed(2)}`;
   descPayment.textContent = "Dynamic Minimum (Monthly Recalculating)";
-  descYears.textContent = "11 years and 8 months";
-  descTotal.textContent = totalPaid.toFixed(2);
-  
+  descYears.textContent   = formatDurationLong(months);
+  if (descAccruedInterest) descAccruedInterest.textContent = totalInterest.toFixed(2);
+  descTotal.textContent   = totalPaid.toFixed(2);
+
   updateStatusBadge(MIN_PAYMENT);
   updateCharts(MIN_PAYMENT);
 }
@@ -240,7 +287,8 @@ paymentRange.addEventListener('input', (e) => {
   
   paymentInput.value = val.toFixed(2);
   tracking.customAmount = Number(val.toFixed(2));
-  
+
+  _animateNext = false;
   render(val);
 });
 

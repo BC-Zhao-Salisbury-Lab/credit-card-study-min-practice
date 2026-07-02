@@ -56,44 +56,44 @@
         <section class="content-section col-left">
           <div class="section-card h-full">
             <fieldset class="options-fieldset">
-  <legend class="options-legend">Select your monthly payment option</legend>
-  
-  <label class="option-row">
-    <input type="radio" name="payOption" value="dynamic-min">
-    <div class="option-content">
-      <span class="option-title">Pay Minimum Amount Due (Recalculated Monthly)</span>
-      <span class="option-desc">Starts at $38.00 &mdash; Required baseline trajectory that updates automatically based on remaining balance to avoid late fees</span>
-    </div>
-  </label>
+              <legend class="options-legend">Select your monthly payment option</legend>
+              
+              <label class="option-row">
+                <input type="radio" name="payOption" value="dynamic-min">
+                <div class="option-content">
+                  <span class="option-title">Pay Minimum Amount Due (Recalculated Monthly)</span>
+                  <span class="option-desc">Starts at $38.00 &mdash; Required baseline trajectory that updates automatically based on remaining balance to avoid late fees</span>
+                </div>
+              </label>
 
-  <label class="option-row">
-    <input type="radio" name="payOption" value="1836.90">
-    <div class="option-content">
-      <span class="option-title">Pay Statement Balance</span>
-      <span class="option-desc">$1,836.90 &mdash; Clears charges from last billing cycle</span>
-    </div>
-  </label>
+              <label class="option-row">
+                <input type="radio" name="payOption" value="1836.90">
+                <div class="option-content">
+                  <span class="option-title">Pay Statement Balance</span>
+                  <span class="option-desc">$1,836.90 &mdash; Clears charges from last billing cycle</span>
+                </div>
+              </label>
 
-  <label class="option-row">
-    <input type="radio" name="payOption" value="1875.11">
-    <div class="option-content">
-      <span class="option-title">Pay Current Balance in Full</span>
-      <span class="option-desc">$1,875.11 &mdash; Pays off everything including recent charges</span>
-    </div>
-  </label>
+              <label class="option-row">
+                <input type="radio" name="payOption" value="1875.11">
+                <div class="option-content">
+                  <span class="option-title">Pay Current Balance in Full</span>
+                  <span class="option-desc">$1,875.11 &mdash; Pays off everything including recent charges</span>
+                </div>
+              </label>
 
-  <label class="option-row option-row--other">
-    <input type="radio" name="payOption" value="other" id="radioOther">
-    <div class="option-content">
-      <span class="option-title">Enter a Custom Amount</span>
-      <div class="custom-input-wrap">
-        <span class="dollar-sign">$</span>
-        <input id="paymentInput" type="number" min="0.00" max="1875.11" step="0.01" value="50.00" placeholder="0.00" />
-      </div>
-      <div id="errorMessage" class="error-msg" style="display: none;">&#9888; Payment must be at least $0.00</div>
-    </div>
-  </label>
-</fieldset>
+              <label class="option-row option-row--other">
+                <input type="radio" name="payOption" value="other" id="radioOther">
+                <div class="option-content">
+                  <span class="option-title">Enter a Custom Amount</span>
+                  <div class="custom-input-wrap">
+                    <span class="dollar-sign">$</span>
+                    <input id="paymentInput" type="number" min="0.00" max="1836.90" step="0.01" value="50.00" placeholder="0.00" />
+                  </div>
+                  <div id="errorMessage" class="error-msg" style="display: none;">&#9888; Payment must be at least $0.00</div>
+                </div>
+              </label>
+            </fieldset>
           </div>
         </section>
 
@@ -104,10 +104,13 @@
                 <div class="result-label">Time to Pay Off</div>
                 <div class="result-value" id="yearsOut">—</div>
               </div>
+              <div class="result-card result-card--interest">
+                <div class="result-label">Interest Paid</div>
+                <div class="result-value" id="interestOut">—</div>
+              </div>
               <div class="result-card result-card--total">
-                <div class="result-label">Total Amount Paid</div>
+                <div class="result-label">Total Paid</div>
                 <div class="result-value" id="totalOut">—</div>
-                <div class="result-sub">Principal + Interest</div>
               </div>
             </div>
             <p class="disclaimer">* Assumes a 22.99% annual interest rate and no additional charges to the account.</p>
@@ -121,7 +124,7 @@
                 <div id="chartTimeTabs" class="chart-tabs-container" style="display: none;">
                   <button class="time-tab active" data-months="12">First 12 Months</button>
                   <button class="time-tab" data-months="36">3 Years (36 Mo)</button>
-                  <button class="time-tab" data-months="140">Max Timeline (140 Mo)</button>
+                  <button class="time-tab" id="maxTimelineTab" data-months="140">Max Timeline</button>
                 </div>
 
                 <div class="canvas-holder">
@@ -129,9 +132,9 @@
                   
                   <div id="chartInfiniteOverlay">
                     <div style="font-size: 3.5rem; color: #9B3232; line-height: 1; margin-bottom: 8px;">&infin;</div>
-                    <h4 style="font-size: 1rem; font-weight: 700; color: #1C3A2A; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em;">Unable to Pay Off</h4>
+                    <h4 style="font-size: 1rem; font-weight: 700; color: #1C3A2A; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em;">Balance Cannot Be Paid Off</h4>
                     <p style="font-size: 0.85rem; color: #4A5C50; max-width: 320px; margin: 0 auto; line-height: 1.5;">
-                      Your monthly payment does not cover the interest generated. The total balance will grow infinitely.
+                      Your monthly payment does not cover the interest generated each month. As a result, your balance will continue to increase over time regardless of how long you make payments.
                     </p>
                   </div>
                 </div>
@@ -149,12 +152,12 @@
           <div class="slider-track-area">
             <div class="slider-labels">
               <span>$0.00</span>
-              <span>$1,875.11 (Full)</span>
+              <span>$1,836.90 (Statement Balance)</span>
             </div>
-            <input id="paymentRange" type="range" min="0.00" max="1875.11" step="0.01" value="38" />
+            <input id="paymentRange" type="range" min="0.00" max="1836.90" step="0.01" value="38" />
           </div>
           <div class="scenario-callout">
-            If you pay <strong>$<span id="descPayment">—</span></strong> per month with no new charges, you will pay off your balance in <strong><span id="descYears">—</span></strong>, for a total of <strong>$<span id="descTotal">—</span></strong>.
+            If you pay <strong>$<span id="descPayment">—</span></strong> per month with no new charges, you will pay off your statement balance in <strong><span id="descYears">—</span></strong>. During this time, you will accumulate <strong>$<span id="descAccruedInterest">0.00</span></strong> in interest charges, bringing your total out-of-pocket payment to <strong>$<span id="descTotal">—</span></strong>.
           </div>
         </div>
       </section>

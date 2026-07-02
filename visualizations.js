@@ -1,572 +1,874 @@
 /**
- * Master High-Readability Visualization Matrix
- * Switch ACTIVE_STRATEGY to change the layout style:
- * 1 = Auto-Adapting Time-Window Tabs (Seamless Tab Shifting & Zero-Scroll)
- * 2 = Fixed Horizon Timeline (Locked Scales - Empty space shows savings)
- * 3 = Multi-Scenario Comparison (Line Chart - Custom vs. Min Path with Target Anchor Node)
- * 4 = Static Baseline Categories (3 Pillars - Total Lifetime Cost Comparison)
- * 5 = Interest Bleed Breakdown (Pie/Donut Matrix - Highlighting Financial Waste)
- * 6 = Real Amortization Decay Curve (Dynamic Minimum Sizing & Crosshair Tracker)
- * 7 = Dynamic Amortization Bars with Zoom Tabs (Combined Strategy 1 & 6)
+ * Master Visualization Matrix
+ * ACTIVE_STRATEGY controls the chart type:
+ * 1 = Payment Progress Over Time          (Auto-Adapting Time-Window Tabs)
+ * 2 = Fixed Timeline Comparison           (Locked 140-Month Scale)
+ * 3 = Payment Strategy Comparison         (Multi-Scenario Line Chart)
+ * 4 = Lifetime Cost Comparison            (Static Baseline Bar Categories)
+ * 5 = Interest vs Principal Breakdown     (Donut Chart)
+ * 6 = Cumulative Payment Progress         (Real Amortization Decay Curve)
+ * 7 = Payment Progress (Zoomable)         (Combined Strategy 1 & 6 with Tabs)
+ *
+ * TAB_DISPLAY_MODE controls timeline tab visibility (Strategies 1 & 7 only):
+ * 0 = Hide tabs completely
+ * 1 = Show only the active tab label as static text
+ * 2 = Show all tabs (full interactive display)
  */
-const ACTIVE_STRATEGY = 7; 
+const ACTIVE_STRATEGY   = 8;
+const TAB_DISPLAY_MODE  = 2;
 
-let selectedTimeWindowMonths = 12; 
+let selectedTimeWindowMonths = 12;
 let tabsInitialized = false;
+let _animateNext = true; // set false on slider drag, true on radio/init
 
-function setupTimeTabs(onTabChangeCallback) {
+// ─── Shared Color Tokens (colorblind-safe — IBM palette) ─────────────────────
+// Orange  → interest / minimum path   (distinguishable in all major CVD types)
+// Blue    → principal / user choice   (strong anchor color, universally distinct)
+// Purple  → totals / pay-in-full ref  (differs from orange & blue in all CVD types)
+const COLOR_INTEREST   = "#E07B00";          // Orange — always represents interest
+const COLOR_PRINCIPAL  = "#0066CC";          // Blue   — always represents principal
+const COLOR_TOTAL      = "#7B2FBE";          // Purple — totals / pay-in-full reference
+const COLOR_MIN_PATH   = "#E07B00";          // Orange — minimum payment reference line
+const COLOR_CUSTOM     = "#0066CC";          // Blue   — user's chosen path
+const COLOR_OPTIMAL    = "#7B2FBE";          // Purple — pay-in-full reference line
+
+// ─── Visualization Metadata ───────────────────────────────────────────────────
+const VIZ_META = {
+  1: { title: "Payment Progress Over Time",       desc: "Shows how your cumulative interest and principal payments grow month by month under your selected payment amount." },
+  2: { title: "Fixed Timeline Comparison",        desc: "Compares your payment path against a fixed 140-month horizon — empty space to the right represents time saved." },
+  3: { title: "Payment Strategy Comparison",      desc: "Compare the lifetime cost trajectory of your chosen payment against the minimum due and paying in full." },
+  4: { title: "Lifetime Cost Comparison",         desc: "Compare the total out-of-pocket cost across three payment strategies: minimum, your choice, and full balance." },
+  5: { title: "Interest vs. Principal Breakdown", desc: "See how much of your total payment goes toward interest charges versus reducing your actual balance." },
+  6: { title: "Cumulative Payment Progress",      desc: "Tracks the total amount you will have paid out-of-pocket over time under different payment strategies." },
+  7: { title: "Payment Progress (Zoomable)",      desc: "Shows cumulative interest and principal paid over time — use the tabs to zoom into any part of the timeline." },
+  8: { title: "Lifetime Cost & Time Comparison",  desc: "Compare total out-of-pocket cost (left axis) and months to pay off (right axis) across three payment strategies." },
+  9: { title: "Lifetime Total Cost Comparison",   desc: "Compare the total amount paid across three payment strategies, shown as a single bar without interest/principal breakdown." }
+};
+
+// ─── Dynamic Y-Axis Scaling ───────────────────────────────────────────────────
+function computeDynamicYMax(values, headroomFactor = 0.12) {
+  const max = Math.max(...values.filter(v => v !== null && isFinite(v)));
+  if (!isFinite(max) || max <= 0) return 5000;
+  const raw = max * (1 + headroomFactor);
+  // Round up to a clean tick: nearest 500 for large values, 100 for small
+  const step = raw > 2000 ? 500 : raw > 500 ? 100 : 50;
+  return Math.ceil(raw / step) * step;
+}
+
+// ─── Cumulative Amortization Builder ─────────────────────────────────────────
+function buildCumulativeSeries(payAmount, windowMonths, statementBalance, monthlyRate, isDynamicMin = false) {
+  // Simulation runs from statement balance ($1,836.90) as the payoff target.
+  // currentBalance ($1,875.11) is the total owed but charts show the statement payoff path.
+  let balance     = statementBalance;
+  let cumInterest = 0;
+  let cumPrincipal = 0;
+  const interestData  = [];
+  const principalData = [];
+
+  for (let m = 1; m <= windowMonths; m++) {
+    if (balance > 0) {
+      let interest        = balance * monthlyRate;
+      let effectivePayment = payAmount;
+
+      if (isDynamicMin) {
+        const newBal     = balance + interest;
+        effectivePayment = Math.max(20.00, newBal * 0.02);
+      } else if (payAmount >= statementBalance) {
+        interest         = 0;
+        effectivePayment = statementBalance;
+      }
+
+      const principal = Math.min(effectivePayment - interest, balance);
+      balance        -= principal;
+      cumInterest    += interest;
+      cumPrincipal   += principal;
+
+      interestData.push(cumInterest);
+      principalData.push(cumPrincipal);
+    } else {
+      interestData.push(null);
+      principalData.push(null);
+    }
+  }
+
+  return { interestData, principalData };
+}
+
+// ─── Tab Display Manager ──────────────────────────────────────────────────────
+function setupTimeTabs() {
   const tabsContainer = document.getElementById("chartTimeTabs");
   if (!tabsContainer) return;
 
-  // Display tab selectors only for timeline slice views (Strategy 1 & 7)
-  if (ACTIVE_STRATEGY === 1 || ACTIVE_STRATEGY === 7) {
-    tabsContainer.style.display = "flex"; 
-  } else {
+  const hasTabs = ACTIVE_STRATEGY === 1 || ACTIVE_STRATEGY === 7;
+
+  if (!hasTabs || TAB_DISPLAY_MODE === 0) {
     tabsContainer.style.display = "none";
     return;
   }
 
-  if (tabsInitialized) return; 
-  tabsInitialized = true;
-
-  const tabs = tabsContainer.querySelectorAll(".time-tab");
-  tabs.forEach(tab => {
-    tab.addEventListener("click", (e) => {
-      tabs.forEach(t => t.classList.remove("active"));
-      e.target.classList.add("active");
-      selectedTimeWindowMonths = parseInt(e.target.getAttribute("data-months"), 10);
-      onTabChangeCallback(); 
+  if (TAB_DISPLAY_MODE === 1) {
+    // Show only the single tab that is genuinely active
+    // Use the same logic as syncActiveTab: max tab only shows when window > 36
+    tabsContainer.style.display = "flex";
+    const maxTab = document.getElementById("maxTimelineTab");
+    tabsContainer.querySelectorAll(".time-tab").forEach(t => {
+      const tabMonths = parseInt(t.getAttribute("data-months"), 10);
+      const isMaxTab  = t === maxTab;
+      let isActive;
+      if (isMaxTab) {
+        isActive = tabMonths === selectedTimeWindowMonths && selectedTimeWindowMonths !== 12 && selectedTimeWindowMonths !== 36;
+      } else {
+        isActive = tabMonths === selectedTimeWindowMonths;
+      }
+      t.style.display       = isActive ? "inline-block" : "none";
+      t.style.cursor        = "default";
+      t.style.pointerEvents = "none";
     });
+    return;
+  }
+
+  // TAB_DISPLAY_MODE === 2: show all tabs
+  tabsContainer.style.display = "flex";
+  tabsContainer.querySelectorAll(".time-tab").forEach(t => {
+    t.style.display       = "inline-block";
+    t.style.cursor        = "default";
+    t.style.pointerEvents = "none";   // tabs auto-advance; no manual clicking needed
   });
 }
 
-function updatePayoffBadgeText(totalMonths) {
+// ─── Chart Title & Description Injector ──────────────────────────────────────
+function applyVizMeta() {
+  const meta = VIZ_META[ACTIVE_STRATEGY];
+  if (!meta) return;
+
+  // Title (reuse existing element, strip the badge span temporarily)
+  const titleEl = document.querySelector(".chart-title");
+  if (titleEl) {
+    // Keep the badge span if it exists
+    const badge = titleEl.querySelector("#chartPayoffBadge");
+    titleEl.childNodes.forEach(n => { if (n.nodeType === Node.TEXT_NODE) n.remove(); });
+    titleEl.insertAdjacentText("afterbegin", meta.title);
+    if (!badge) {
+      const span = document.createElement("span");
+      span.id = "chartPayoffBadge";
+      span.style.cssText = "margin-left:8px;color:var(--primary);font-weight:700;text-transform:none;letter-spacing:normal;";
+      titleEl.appendChild(span);
+    }
+  }
+
+  // Description — inject once below the title
+  const chartCard = document.querySelector(".chart-card");
+  if (chartCard && !chartCard.querySelector(".viz-desc")) {
+    const p = document.createElement("p");
+    p.className = "viz-desc";
+    p.textContent = meta.desc;
+    // Insert after chart-title
+    const titleNode = chartCard.querySelector(".chart-title");
+    if (titleNode) titleNode.insertAdjacentElement("afterend", p);
+    else chartCard.prepend(p);
+  }
+}
+
+// ─── Payoff Badge ─────────────────────────────────────────────────────────────
+function updatePayoffBadgeText(displayMonths) {
   const badge = document.getElementById("chartPayoffBadge");
   if (!badge) return;
 
   badge.style.color = "var(--primary)";
 
   if (ACTIVE_STRATEGY === 5) {
-    badge.innerText = "— Pure Interest Waste vs. Spent Principal";
-    badge.style.color = "var(--danger)";
+    badge.innerText = ""; // desc covers it
     return;
   }
   if (ACTIVE_STRATEGY === 4) {
-    badge.innerText = "— Lifetime Cost Outcomes Summary";
+    badge.innerText = "";
     return;
   }
-  if (ACTIVE_STRATEGY === 6 || ACTIVE_STRATEGY === 7) {
-    if (!isFinite(totalMonths) || totalMonths === Infinity) {
-      badge.innerText = "— ⚠️ Custom Payment Too Low to Clear Monthly Interest Bleed";
-      badge.style.color = "#9B3232";
-    } else {
-      badge.innerText = `— 🎉 Custom Recalculating Path Pays Off in ${totalMonths} Month${totalMonths > 1 ? 's' : ''}`;
-    }
-    return;
-  }
-
-  if (!isFinite(totalMonths) || totalMonths === Infinity) {
-    badge.innerText = "— ⚠️ WARNING: Debt Will Never Be Paid Off";
+  if (!isFinite(displayMonths) || displayMonths === Infinity) {
+    badge.innerText = "— ⚠️ Balance will never be paid off";
     badge.style.color = "var(--danger)";
-  } else if (totalMonths <= 1) {
-    badge.innerText = "— 🎉 Debt Cleared Immediately!";
-  } else if (totalMonths <= 140) {
-    badge.innerText = `— 🎉 Debt Cleared in Month ${totalMonths}!`;
-  } else {
-    badge.innerText = "— ⚠️ Takes over 140 months to clear";
-    badge.style.color = "var(--warning)";
+    return;
   }
+  if (displayMonths <= 1) {
+    badge.innerText = "— ✓ Paid off immediately";
+    badge.style.color = "var(--primary)";
+    return;
+  }
+  badge.innerText = `— Paid off in ${displayMonths} month${displayMonths !== 1 ? "s" : ""}`;
+  badge.style.color = "var(--primary)";
 }
 
-function renderStudyChart(ctx, payment, currentBalance, monthlyRate, computeFn, onTabChangeTrigger) {
-  setupTimeTabs(onTabChangeTrigger);
+// ─── Max Tab Label Updater ────────────────────────────────────────────────────
+function updateMaxTab(actualMonths) {
+  const tab = document.getElementById("maxTimelineTab");
+  if (!tab) return;
+  const mo = isFinite(actualMonths) ? actualMonths : 140;
+  tab.dataset.months = mo;
+  tab.textContent = mo <= 140 ? `Max Timeline (${mo} Mo)` : `Full Timeline (${mo} Mo)`;
+}
 
-  const metrics = computeFn(payment);
-  const maxTimelineMonths = 140; 
-  const maxLifetimeCost = 4500;  
+// ─── Active Tab Syncer ────────────────────────────────────────────────────────
+// Matches by both value AND tab identity so the max-timeline tab is only
+// highlighted when it is genuinely the selected window (displayMonths > 36),
+// not just because its data-months happens to equal 12 or 36.
+function syncActiveTab(windowMonths) {
+  const maxTab = document.getElementById("maxTimelineTab");
+  document.querySelectorAll(".time-tab").forEach(t => {
+    const val = parseInt(t.getAttribute("data-months"), 10);
+    const isMaxTab = t === maxTab;
+    // Max tab is only active when it is the tab driving the window,
+    // i.e. windowMonths is not one of the fixed breakpoints (12 or 36).
+    if (isMaxTab) {
+      t.classList.toggle("active", val === windowMonths && windowMonths !== 12 && windowMonths !== 36);
+    } else {
+      t.classList.toggle("active", val === windowMonths);
+    }
+  });
+}
 
+// ─── Main Entry Point ─────────────────────────────────────────────────────────
+// ─── In-Place Chart Update Helper ────────────────────────────────────────────
+// Always swaps data instantly (no Chart.js per-element animation).
+// On radio/init (_animateNext=true): adds a CSS class that triggers a 180ms
+// opacity fade-in on the canvas, giving a clean unified transition.
+// On slider drag (_animateNext=false): purely instant — no visual overhead.
+function applyChartData(existingChart, ctx, type, datasets, options) {
+  let chart;
+
+  if (
+    existingChart &&
+    !existingChart._destroying &&
+    existingChart.config.type === type &&
+    existingChart.data.datasets.length === datasets.length
+  ) {
+    // Mutate in place
+    if (options._labels) existingChart.data.labels = options._labels;
+    datasets.forEach((ds, i) => {
+      existingChart.data.datasets[i].data = ds.data;
+      if (ds.backgroundColor !== undefined) existingChart.data.datasets[i].backgroundColor = ds.backgroundColor;
+      if (ds.borderColor     !== undefined) existingChart.data.datasets[i].borderColor     = ds.borderColor;
+      if (ds.pointRadius     !== undefined) existingChart.data.datasets[i].pointRadius     = ds.pointRadius;
+    });
+    if (options._yMax !== undefined) existingChart.options.scales.y.max = options._yMax;
+    existingChart.options.animation = { duration: 0 };
+    existingChart.update('none');
+    chart = existingChart;
+  } else {
+    // Create fresh (first load or type change)
+    chart = new Chart(ctx, {
+      type,
+      data: { labels: options._labels || [], datasets },
+      options: { ...options, animation: { duration: 0 } }
+    });
+  }
+
+  // CSS fade-in on intentional changes (radio / init), not on every slider tick
+  if (_animateNext && ctx.canvas) {
+    const canvas = ctx.canvas;
+    canvas.classList.remove('chart-fade-in');
+    // Force reflow so removing then re-adding the class restarts the animation
+    void canvas.offsetWidth;
+    canvas.classList.add('chart-fade-in');
+  }
+
+  return chart;
+}
+
+function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthlyRate, computeFn, onTabChangeTrigger, existingChart = null) {
+  setupTimeTabs();
+  applyVizMeta();
+
+  const metrics      = computeFn(payment);
   const displayMonths = isFinite(metrics.months) ? Math.ceil(metrics.months) : Infinity;
+
+  updateMaxTab(displayMonths);
   updatePayoffBadgeText(displayMonths);
 
-  if (ctx.canvas) {
-    ctx.canvas.style.width = "100%";
+  if (ctx.canvas) ctx.canvas.style.width = "100%";
+
+  // ── Infinite / unpayable state overlay ──────────────────────────────────────
+  const wrapperEl  = document.getElementById("chartPositionWrapper");
+  const overlayEl  = document.getElementById("chartInfiniteOverlay");
+  const canvasEl   = ctx.canvas;
+  // Infinite check uses statementBalance — that's the payoff target
+  const isInfinite = !isFinite(displayMonths) || payment <= statementBalance * monthlyRate;
+
+  // ── Remainder note ───────────────────────────────────────────────────────────
+  // Show a persistent note that $38.21 (currentBalance - statementBalance) remains
+  // after statement balance is cleared, so participants aren't confused.
+  const remainder = currentBalance - statementBalance;
+  const remainderNoteId = "remainderNote";
+  const chartSection = document.getElementById("chartSection");
+  if (chartSection && !document.getElementById(remainderNoteId)) {
+    const note = document.createElement("p");
+    note.id = remainderNoteId;
+    note.className = "remainder-note";
+    note.innerHTML = `<strong>Note:</strong> These projections show payoff of your statement balance ($${statementBalance.toFixed(2)}). ` +
+      `A remaining balance of <strong>$${remainder.toFixed(2)}</strong> from recent charges will still need to be paid separately.`;
+    chartSection.appendChild(note);
   }
 
-  const wrapperElement = document.getElementById("chartPositionWrapper");
-  const overlay = document.getElementById("chartInfiniteOverlay");
-  const canvasElement = ctx.canvas;
-
-  // Global Check for Infinite/Unpayable States across Timeline Layouts
-  const interestChargeThreshold = currentBalance * monthlyRate;
-  const isInfinite = displayMonths === Infinity || !isFinite(displayMonths) || payment <= interestChargeThreshold;
-
-  if (isInfinite && (ACTIVE_STRATEGY === 1 || ACTIVE_STRATEGY === 2 || ACTIVE_STRATEGY === 6 || ACTIVE_STRATEGY === 7)) {
-    if (wrapperElement) wrapperElement.setAttribute("data-infinite", "true");
-    if (overlay) overlay.style.setProperty('display', 'flex', 'important');
-    if (canvasElement) canvasElement.style.setProperty('display', 'none', 'important');
-    return null; 
+  if (isInfinite) {
+    if (wrapperEl)  wrapperEl.setAttribute("data-infinite", "true");
+    if (overlayEl)  overlayEl.style.setProperty("display", "flex", "important");
+    if (canvasEl)   canvasEl.style.setProperty("display", "none", "important");
+    return null;
   } else {
-    if (wrapperElement) wrapperElement.removeAttribute("data-infinite");
-    if (overlay) overlay.style.setProperty('display', 'none', 'important');
-    if (canvasElement) canvasElement.style.setProperty('display', 'block', 'important');
+    if (wrapperEl)  wrapperEl.removeAttribute("data-infinite");
+    if (overlayEl)  overlayEl.style.setProperty("display", "none", "important");
+    if (canvasEl)   canvasEl.style.setProperty("display", "block", "important");
   }
 
-  // ─── STRATEGY 1: TIME-WINDOW ZOOM TABS ────────────
+  const maxTimelineMonths = 140; // used by fixed-window strategies 2, 3, 4, 5, 6
+
+  // ─── STRATEGY 1: Payment Progress Over Time (Auto-Adapting Tabs) ───────────
   if (ACTIVE_STRATEGY === 1) {
-    let perfectWindow = selectedTimeWindowMonths;
-    if (displayMonths <= 12) perfectWindow = 12;
+    let perfectWindow;
+    if (displayMonths <= 12)      perfectWindow = 12;
     else if (displayMonths <= 36) perfectWindow = 36;
-    else perfectWindow = 140;
+    else                          perfectWindow = displayMonths;
 
     if (perfectWindow !== selectedTimeWindowMonths) {
       selectedTimeWindowMonths = perfectWindow;
-      const tabs = document.querySelectorAll(".time-tab");
-      tabs.forEach(t => {
-        if (parseInt(t.getAttribute("data-months"), 10) === perfectWindow) t.classList.add("active");
-        else t.classList.remove("active");
-      });
+      syncActiveTab(perfectWindow);
     }
+
+    const { interestData, principalData } = buildCumulativeSeries(
+      payment, selectedTimeWindowMonths, statementBalance, monthlyRate
+    );
+
+    const allValues = [...interestData, ...principalData].filter(v => v !== null);
+    const yMax = computeDynamicYMax(
+      allValues.map((_, i) => (interestData[i] ?? 0) + (principalData[i] ?? 0))
+    );
 
     const labels = Array.from({ length: selectedTimeWindowMonths }, (_, i) => `${i + 1}`);
-    let balance = currentBalance;
-    let totalInterestSoFar = 0;
-    let totalPrincipalSoFar = 0;
-    const cumulativeInterest = [];
-    const cumulativePrincipal = [];
 
-    for (let m = 1; m <= selectedTimeWindowMonths; m++) {
-      if (m <= displayMonths && balance > 0) {
-        // Fix: Apply standard grace period for full statement payments
-        const interest = payment >= currentBalance ? 0 : balance * monthlyRate;
-        const principal = Math.min(payment - interest, balance);
-        balance -= principal;
-        totalInterestSoFar += interest;
-        totalPrincipalSoFar += principal;
-        cumulativeInterest.push(totalInterestSoFar);
-        cumulativePrincipal.push(totalPrincipalSoFar);
-      } else {
-        cumulativeInterest.push(null);
-        cumulativePrincipal.push(null);
-      }
-    }
-
-    return new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [
-          { label: "Cumulative Interest Paid", data: cumulativeInterest, backgroundColor: "#9B3232" },
-          { label: "Cumulative Principal Paid", data: cumulativePrincipal, backgroundColor: "#2E6B4F" }
-        ]
+    return applyChartData(existingChart, ctx, "bar", [
+      { label: "Interest Paid",  data: interestData,  backgroundColor: COLOR_INTEREST  },
+      { label: "Principal Paid", data: principalData, backgroundColor: COLOR_PRINCIPAL }
+    ], {
+      _labels: labels,
+      _yMax: yMax,
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, title: { display: true, text: "Months Since First Payment", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { autoSkip: true, maxTicksLimit: 12 } },
+        y: { stacked: true, min: 0, max: yMax, title: { display: true, text: "Total Paid ($)", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { callback: v => "$" + v.toLocaleString() } }
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: { duration: 0 }, 
-        scales: {
-          x: { stacked: true, title: { display: true, text: 'Month' }, ticks: { autoSkip: true, maxTicksLimit: 12 } },
-          y: { stacked: true, min: 0, max: maxLifetimeCost, title: { display: true, text: 'Total Amount Paid ($)' }, ticks: { callback: v => '$' + v.toFixed(0) } }
-        },
-        barPercentage: 0.9,
-        categoryPercentage: 0.9
-      }
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 12, padding: 14, font: { family: "'Libre Franklin', sans-serif", size: 12 } } },
+        tooltip: {
+          mode: "index", intersect: false, padding: 12,
+          backgroundColor: "rgba(28,58,42,0.95)",
+          titleFont: { size: 13, weight: 700 }, bodyFont: { size: 12 },
+          callbacks: {
+            title: ctx => `Month ${ctx[0].label}`,
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`,
+            footer: items => `Total Paid: $${items.reduce((s,i) => s + i.parsed.y, 0).toFixed(2)}`
+          }
+        }
+      },
+      barPercentage: 0.9,
+      categoryPercentage: 0.9
     });
   }
 
-  // ─── STRATEGY 2: FIXED HORIZON TIMELINE ───────────
+  // ─── STRATEGY 2: Fixed Timeline Comparison ────────────────────────────────
   if (ACTIVE_STRATEGY === 2) {
+    const { interestData, principalData } = buildCumulativeSeries(
+      payment, maxTimelineMonths, statementBalance, monthlyRate
+    );
+
+    const stackedTotals = interestData.map((v, i) =>
+      (v !== null && principalData[i] !== null) ? v + principalData[i] : null
+    );
+    const yMax  = computeDynamicYMax(stackedTotals.filter(v => v !== null));
     const labels = Array.from({ length: maxTimelineMonths }, (_, i) => `${i + 1}`);
-    let balance = currentBalance;
-    let totalInterestSoFar = 0;
-    let totalPrincipalSoFar = 0;
-    const cumulativeInterest = [];
-    const cumulativePrincipal = [];
 
-    for (let m = 1; m <= maxTimelineMonths; m++) {
-      if (m <= displayMonths && balance > 0) {
-        // Fix: Apply standard grace period for full statement payments
-        const interest = payment >= currentBalance ? 0 : balance * monthlyRate;
-        const principal = Math.min(payment - interest, balance);
-        balance -= principal;
-        totalInterestSoFar += interest;
-        totalPrincipalSoFar += principal;
-        cumulativeInterest.push(totalInterestSoFar);
-        cumulativePrincipal.push(totalPrincipalSoFar);
-      } else {
-        cumulativeInterest.push(null);
-        cumulativePrincipal.push(null);
-      }
-    }
-
-    return new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [
-          { label: "Cumulative Interest Paid", data: cumulativeInterest, backgroundColor: "#9B3232" },
-          { label: "Cumulative Principal Paid", data: cumulativePrincipal, backgroundColor: "#2E6B4F" }
-        ]
+    return applyChartData(existingChart, ctx, "bar", [
+      { label: "Interest Paid",  data: interestData,  backgroundColor: COLOR_INTEREST  },
+      { label: "Principal Paid", data: principalData, backgroundColor: COLOR_PRINCIPAL }
+    ], {
+      _labels: labels,
+      _yMax: yMax,
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, title: { display: true, text: "Months Since First Payment", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { autoSkip: true, maxTicksLimit: 14 } },
+        y: { stacked: true, min: 0, max: yMax, title: { display: true, text: "Total Paid ($)", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { callback: v => "$" + v.toLocaleString() } }
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { stacked: true, title: { display: true, text: 'Month' }, ticks: { autoSkip: true, maxTicksLimit: 14 } },
-          y: { stacked: true, min: 0, max: maxLifetimeCost, title: { display: true, text: 'Total Amount Paid ($)' }, ticks: { callback: v => '$' + v.toFixed(0) } }
-        },
-        barPercentage: 1.0,
-        categoryPercentage: 1.0
-      }
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 12, padding: 14, font: { family: "'Libre Franklin', sans-serif", size: 12 } } },
+        tooltip: {
+          mode: "index", intersect: false, padding: 12,
+          backgroundColor: "rgba(28,58,42,0.95)",
+          callbacks: {
+            title: ctx => `Month ${ctx[0].label}`,
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`,
+            footer: items => `Total Paid: $${items.reduce((s,i)=>s+i.parsed.y,0).toFixed(2)}`
+          }
+        }
+      },
+      barPercentage: 1.0,
+      categoryPercentage: 1.0
     });
   }
 
-  // ─── STRATEGY 3: MULTI-SCENARIO COMPARISON ─────────
+  // ─── STRATEGY 3: Payment Strategy Comparison (Line) ───────────────────────
   if (ACTIVE_STRATEGY === 3) {
     const labels = Array.from({ length: maxTimelineMonths }, (_, i) => `${i + 1}`);
 
-    function generateLineTrajectory(payAmount, isCustomChoice = false) {
-      let balance = currentBalance;
+    function buildLineTrajectory(payAmount, markPayoff = false) {
+      let balance = statementBalance;
       let totalPaid = 0;
-      const dataPoints = [];
-      let foundPayoffMonth = false;
-      const pointRadiusArray = [];
+      const data    = [];
+      const radii   = [];
+      let marked    = false;
 
       for (let m = 1; m <= maxTimelineMonths; m++) {
         if (balance <= 0) {
-          dataPoints.push(totalPaid);
-          if (isCustomChoice) pointRadiusArray.push(0);
+          data.push(totalPaid);
+          if (markPayoff) radii.push(0);
           continue;
         }
-
-        // Fix: Apply standard grace period for full statement payments
-        const interest = payAmount >= currentBalance ? 0 : balance * monthlyRate;
+        const interest = payAmount >= statementBalance ? 0 : balance * monthlyRate;
         const principal = Math.min(payAmount - interest, balance);
-        balance -= principal;
-        totalPaid += (interest + principal);
-        dataPoints.push(totalPaid);
-
-        if (isCustomChoice) {
-          if (balance <= 0 && !foundPayoffMonth) {
-            pointRadiusArray.push(8); 
-            foundPayoffMonth = true;
-          } else {
-            pointRadiusArray.push(0); 
-          }
+        balance   -= principal;
+        totalPaid += interest + principal;
+        data.push(totalPaid);
+        if (markPayoff) {
+          if (balance <= 0 && !marked) { radii.push(8); marked = true; }
+          else radii.push(0);
         }
       }
-
-      return { data: dataPoints, radii: isCustomChoice ? pointRadiusArray : 0 };
+      return { data, radii: markPayoff ? radii : 0 };
     }
 
-    const minTrajectory = generateLineTrajectory(38.00, false);
-    const customTrajectory = generateLineTrajectory(payment, true);
-    const optimalTrajectory = generateLineTrajectory(currentBalance, false);
+    const minLine    = buildLineTrajectory(38.00);
+    const customLine = buildLineTrajectory(payment, true);
+    const fullLine   = buildLineTrajectory(statementBalance);
 
-    return new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          { label: "Minimum Payment Path ($38/mo)", data: minTrajectory.data, borderColor: "#9B3232", borderWidth: 2, pointRadius: 0 },
-          { 
-            label: "Your Custom Choice Path", 
-            data: customTrajectory.data, 
-            borderColor: "#2E6B4F", 
-            borderWidth: 4, 
-            fill: true, 
-            backgroundColor: "rgba(46,107,79,0.06)", 
-            pointRadius: customTrajectory.radii, 
-            pointBackgroundColor: "#FFFFFF",      
-            pointBorderColor: "#2E6B4F",          
-            pointBorderWidth: 4,                  
-            pointHoverRadius: 12,                 
-            pointHoverBackgroundColor: "#2E6B4F"
-          },
-          { label: "Pay in Full Immediately ($1,875.11)", data: optimalTrajectory.data, borderColor: "#2B5C8F", borderWidth: 2, borderDash: [6, 4], pointRadius: 0 }
-        ]
+    const yMax = computeDynamicYMax([
+      ...minLine.data, ...customLine.data, ...fullLine.data
+    ].filter(v => v !== null && isFinite(v)));
+
+    return applyChartData(existingChart, ctx, "line", [
+      { label: "Minimum Payment ($38/mo)",          data: minLine.data,    borderColor: COLOR_MIN_PATH, borderWidth: 2, pointRadius: 0, tension: 0.1 },
+      { label: "Your Payment Choice",               data: customLine.data, borderColor: COLOR_CUSTOM,   borderWidth: 4, fill: true, backgroundColor: "rgba(0,102,204,0.07)", pointRadius: customLine.radii, pointBackgroundColor: "#FFFFFF", pointBorderColor: COLOR_CUSTOM, pointBorderWidth: 4, pointHoverRadius: 12, tension: 0.1 },
+      { label: "Pay Statement Balance ($1,836.90)", data: fullLine.data,   borderColor: COLOR_TOTAL,    borderWidth: 2, borderDash: [6, 4], pointRadius: 0, tension: 0.1 }
+    ], {
+      _labels: labels,
+      _yMax: yMax,
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { title: { display: true, text: "Months Since First Payment", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { autoSkip: true, maxTicksLimit: 14 } },
+        y: { min: 0, max: yMax, title: { display: true, text: "Total Paid ($)", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { callback: v => "$" + v.toLocaleString() } }
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { title: { display: true, text: 'Months' }, ticks: { autoSkip: true, maxTicksLimit: 14 } },
-          y: { min: 0, max: maxLifetimeCost, title: { display: true, text: 'Total Out of Pocket ($)' }, ticks: { callback: v => '$' + v.toFixed(0) } }
-        },
-        plugins: {
-          legend: { display: true, position: 'top', labels: { boxWidth: 20, font: { size: 11 } } }
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 14, padding: 14, font: { family: "'Libre Franklin', sans-serif", size: 12 } } },
+        tooltip: {
+          padding: 12, backgroundColor: "rgba(28,58,42,0.95)",
+          callbacks: {
+            title: ctx => `Month ${ctx[0].label}`,
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`
+          }
         }
       }
     });
   }
 
-  // ─── STRATEGY 4: STATIC BASELINE CATEGORIES ───────
+  // ─── STRATEGY 4: Lifetime Cost Comparison (Bar — dynamic Y axis) ──────────
   if (ACTIVE_STRATEGY === 4) {
-    function getFinalMetrics(payAmount) {
-      let balance = currentBalance;
-      let totalInterest = 0;
-      let totalPrincipal = 0;
-      const sim = computeFn(payAmount);
-      const loops = isFinite(sim.months) ? Math.ceil(sim.months) : maxTimelineMonths;
-      for (let m = 1; m <= loops; m++) {
-        if (balance <= 0) break;
-        // Fix: Apply standard grace period for full statement payments
-        const interest = payAmount >= currentBalance ? 0 : balance * monthlyRate;
-        const principal = Math.min(payAmount - interest, balance);
-        balance -= principal;
-        totalInterest += interest;
-        totalPrincipal += principal;
+    function getLifetimeTotals(payAmount) {
+      let bal = statementBalance, interest = 0, principal = 0, m = 0;
+      while (bal > 0 && m < 1200) {
+        m++;
+        const int  = payAmount >= statementBalance ? 0 : bal * monthlyRate;
+        const prin = Math.min(payAmount - int, bal);
+        bal       -= prin;
+        interest  += int;
+        principal += prin;
       }
-      return { interest: totalInterest, principal: totalPrincipal };
+      return { interest, principal };
     }
 
-    const minOption = getFinalMetrics(38.00);
-    const userOption = getFinalMetrics(payment);
-    const fullOption = getFinalMetrics(currentBalance);
+    const minTotals    = getLifetimeTotals(38.00);
+    const customTotals = getLifetimeTotals(payment);
+    const fullTotals   = getLifetimeTotals(statementBalance);
 
-    const dynamicCustomLabel = `Your Choice ($${payment.toFixed(2)}/mo)`;
+    const yMax = computeDynamicYMax([
+      minTotals.interest + minTotals.principal,
+      customTotals.interest + customTotals.principal,
+      fullTotals.interest + fullTotals.principal
+    ]);
 
-    return new Chart(ctx, {
+    return applyChartData(existingChart, ctx, "bar", [
+      { label: "Interest Paid",  data: [minTotals.interest,  customTotals.interest,  fullTotals.interest],  backgroundColor: COLOR_INTEREST  },
+      { label: "Principal Paid", data: [minTotals.principal, customTotals.principal, fullTotals.principal], backgroundColor: COLOR_PRINCIPAL }
+    ], {
+      _labels: ["Minimum Due ($38/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($1,836.90)"],
+      _yMax: yMax,
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, title: { display: true, text: "Payment Strategy", color: "var(--text-secondary)", font: { weight: 600 } } },
+        y: { stacked: true, min: 0, max: yMax, title: { display: true, text: "Total Lifetime Cost ($)", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { callback: v => "$" + v.toLocaleString() } }
+      },
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 12, padding: 14, font: { family: "'Libre Franklin', sans-serif", size: 12 } } },
+        tooltip: {
+          mode: "index", intersect: false, padding: 12,
+          backgroundColor: "rgba(28,58,42,0.95)",
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`,
+            footer: items => `Total Paid: $${items.reduce((s,i)=>s+i.parsed.y,0).toFixed(2)}`
+          }
+        }
+      }
+    });
+  }
+
+  // ─── STRATEGY 8: Lifetime Cost + Time (Dual Y-Axis) ─────────────────────────
+  if (ACTIVE_STRATEGY === 8) {
+    function getLifetimeFull(payAmount) {
+      let bal = statementBalance, interest = 0, principal = 0, m = 0;
+      while (bal > 0 && m < 1200) {
+        m++;
+        const int  = payAmount >= statementBalance ? 0 : bal * monthlyRate;
+        const prin = Math.min(payAmount - int, bal);
+        bal       -= prin;
+        interest  += int;
+        principal += prin;
+      }
+      return { interest, principal, months: m, total: interest + principal };
+    }
+
+    const minF    = getLifetimeFull(38.00);
+    const customF = getLifetimeFull(payment);
+    const fullF   = getLifetimeFull(statementBalance);
+
+    const barLabels = ["Minimum Due ($38/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($1,836.90)"];
+
+    const costMax  = computeDynamicYMax([minF.total, customF.total, fullF.total]);
+    const monthMax = computeDynamicYMax([minF.months, customF.months, fullF.months]);
+
+    // Dual-axis mixed charts can't be safely mutated in-place — always recreate.
+    if (existingChart && !existingChart._destroying) {
+      existingChart.destroy();
+    }
+
+    const chart8 = new Chart(ctx, {
       type: "bar",
       data: {
-        labels: ["Minimum Due ($38)", dynamicCustomLabel, "Full Balance ($1,875.11)"],
+        labels: barLabels,
         datasets: [
-          { label: "Total Interest Paid", data: [minOption.interest, userOption.interest, fullOption.interest], backgroundColor: "#9B3232" },
-          { label: "Total Principal Paid", data: [minOption.principal, userOption.principal, fullOption.principal], backgroundColor: "#2E6B4F" }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { stacked: true },
-          y: { stacked: true, min: 0, max: maxLifetimeCost, title: { display: true, text: "Total Lifetime Cost ($)" } }
-        }
-      }
-    });
-  }
-
-  // ─── STRATEGY 5: INTEREST BLEED BREAKDOWN ──────
-  if (ACTIVE_STRATEGY === 5) {
-    let totalInterest = 0;
-
-    if (payment >= currentBalance) {
-      totalInterest = 0;
-    } else {
-      let balance = currentBalance;
-      const loops = isFinite(metrics.months) ? Math.ceil(metrics.months) : maxTimelineMonths;
-
-      for (let m = 1; m <= loops; m++) {
-        if (balance <= 0) break;
-        const interest = balance * monthlyRate;
-        const principal = Math.min(payment - interest, balance);
-        balance -= principal;
-        totalInterest += interest;
-      }
-    }
-
-    let chartDataValues, chartBackgroundColors, chartLabels;
-
-    if (totalInterest <= 0.01) {
-      chartDataValues = [currentBalance];
-      chartBackgroundColors = ["#2E6B4F"];
-      chartLabels = ["Principal Balance (Paid In Full)"];
-    } else {
-      chartDataValues = [currentBalance, totalInterest];
-      chartBackgroundColors = ["#2E6B4F", "#9B3232"];
-      chartLabels = ["Principal Balance (Spent)", "Interest Bleed (Waste)"];
-    }
-
-    return new Chart(ctx, {
-      type: "doughnut",
-      data: {
-        labels: chartLabels,
-        datasets: [{
-          data: chartDataValues,
-          backgroundColor: chartBackgroundColors,
-          borderWidth: totalInterest <= 0.01 ? 0 : 2,
-          hoverOffset: totalInterest <= 0.01 ? 0 : 4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        aspectRatio: 2,
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: { padding: 15 }
-          }
-        }
-      }
-    });
-  }
-
-  // ─── STRATEGY 6: REAL DECAY CURVE (RECALCULATING MINIMUM CLEARLY LABELED) ───────────
-  if (ACTIVE_STRATEGY === 6) {
-    const labels = Array.from({ length: maxTimelineMonths }, (_, i) => `${i + 1}`);
-
-    function generateAmortizationLine(payAmount, isCustomChoice = false, isDynamicMinimum = false) {
-      let balance = currentBalance;
-      let totalPaid = 0;
-      const dataPoints = [];
-      let foundPayoffMonth = false;
-      const pointRadiusArray = [];
-
-      for (let m = 1; m <= maxTimelineMonths; m++) {
-        if (balance <= 0) {
-          dataPoints.push(totalPaid);
-          if (isCustomChoice) pointRadiusArray.push(0);
-          continue;
-        }
-
-        let effectivePayment = payAmount;
-        // Fix: Apply standard grace period for full statement payments
-        let interest = payAmount >= currentBalance ? 0 : balance * monthlyRate;
-
-        if (isDynamicMinimum) {
-          interest = balance * monthlyRate;
-          const percentageMin = (balance * 0.01) + interest;
-          effectivePayment = Math.max(38.00, percentageMin);
-        }
-
-        const principal = Math.min(effectivePayment - interest, balance);
-        balance -= principal;
-        totalPaid += (interest + principal);
-        dataPoints.push(totalPaid);
-
-        if (isCustomChoice) {
-          if (balance <= 0 && !foundPayoffMonth) {
-            pointRadiusArray.push(7); 
-            foundPayoffMonth = true;
-          } else {
-            pointRadiusArray.push(0); 
-          }
-        }
-      }
-
-      return { data: dataPoints, radii: isCustomChoice ? pointRadiusArray : 0 };
-    }
-
-    const minTrajectory = generateAmortizationLine(38.00, false, true); 
-    const customTrajectory = generateAmortizationLine(payment, true, false);
-    const optimalTrajectory = generateAmortizationLine(currentBalance, false, false);
-
-    return new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          { label: "Recalculating Minimum Payment Curve (Declines Monthly)", data: minTrajectory.data, borderColor: "#9B3232", borderWidth: 2, pointRadius: 0, tension: 0.15 },
-          { 
-            label: "Your Fixed Custom Choice Path", 
-            data: customTrajectory.data, 
-            borderColor: "#2E6B4F", 
-            borderWidth: 4, 
-            fill: true, 
-            backgroundColor: "rgba(46,107,79,0.04)", 
-            pointRadius: customTrajectory.radii, 
-            pointBackgroundColor: "#2E6B4F",      
-            pointBorderColor: "#FFFFFF",          
-            pointBorderWidth: 2,                  
-            pointHoverRadius: 10,                 
-            pointHoverBackgroundColor: "#1C3A2A",
-            tension: 0.05
+          {
+            label: "Total Cost ($)",
+            data: [minF.total, customF.total, fullF.total],
+            backgroundColor: [COLOR_MIN_PATH, COLOR_CUSTOM, COLOR_TOTAL],
+            yAxisID: "yCost",
+            order: 2
           },
-          { label: "Pay Statement Balance in Full", data: optimalTrajectory.data, borderColor: "#4A5C40", borderWidth: 1.5, borderDash: [5, 5], pointRadius: 0 }
+          {
+            label: "Months to Pay Off",
+            data: [minF.months, customF.months, fullF.months],
+            backgroundColor: "transparent",
+            borderColor: [COLOR_MIN_PATH, COLOR_CUSTOM, COLOR_TOTAL],
+            borderWidth: 2,
+            type: "line",
+            yAxisID: "yMonths",
+            pointRadius: 6,
+            pointBackgroundColor: [COLOR_MIN_PATH, COLOR_CUSTOM, COLOR_TOTAL],
+            pointBorderColor: "#FFFFFF",
+            pointBorderWidth: 2,
+            order: 1
+          }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: { duration: 0 },
-        interaction: { mode: 'index', intersect: false },
+        interaction: { mode: "index", intersect: false },
         scales: {
-          x: { title: { display: true, text: 'Months Out into Future', color: 'var(--text-secondary)', font: { weight: 600 } }, ticks: { autoSkip: true, maxTicksLimit: 12 } },
-          y: { min: 0, max: maxLifetimeCost, title: { display: true, text: 'Cumulative Out-of-Pocket Cost ($)', color: 'var(--text-secondary)', font: { weight: 600 } }, ticks: { callback: v => '$' + v.toLocaleString() } }
+          x: {
+            title: { display: true, text: "Payment Strategy", color: "var(--text-secondary)", font: { weight: 600 } }
+          },
+          yCost: {
+            type: "linear",
+            position: "left",
+            min: 0,
+            max: costMax,
+            title: { display: true, text: "Total Cost ($)", color: COLOR_INTEREST, font: { weight: 600 } },
+            ticks: { color: COLOR_INTEREST, callback: v => "$" + v.toLocaleString() },
+            grid: { color: "rgba(224,123,0,0.1)" }
+          },
+          yMonths: {
+            type: "linear",
+            position: "right",
+            min: 0,
+            max: monthMax,
+            title: { display: true, text: "Months to Pay Off", color: COLOR_PRINCIPAL, font: { weight: 600 } },
+            ticks: { color: COLOR_PRINCIPAL, callback: v => v + " mo" },
+            grid: { drawOnChartArea: false }
+          }
         },
         plugins: {
-          legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 12, font: { size: 11.5, family: "'Libre Franklin', sans-serif" } } },
+          legend: { display: true, position: "top", labels: { boxWidth: 12, padding: 14, font: { family: "'Libre Franklin', sans-serif", size: 12 } } },
           tooltip: {
             padding: 12,
-            backgroundColor: 'rgba(28, 58, 42, 0.95)',
-            titleFont: { size: 13, weight: 700 },
-            bodyFont: { size: 12 },
+            backgroundColor: "rgba(28,58,42,0.95)",
             callbacks: {
-              title: function(context) { return `Milestone: Month ${context[0].label}`; },
-              label: function(context) { return ` ${context.dataset.label}: $${context.parsed.y.toFixed(2)}`; }
+              title: ctx => ctx[0].label,
+              label: ctx => {
+                if (ctx.dataset.yAxisID === "yCost")    return ` Total Cost: $${ctx.parsed.y.toFixed(2)}`;
+                if (ctx.dataset.yAxisID === "yMonths")  return ` Months to Pay Off: ${ctx.parsed.y}`;
+                return ctx.dataset.label + ": " + ctx.parsed.y;
+              }
             }
+          }
+        }
+      }
+    });
+    return chart8;
+  }
+
+  // ─── STRATEGY 9: Lifetime Total Cost (No Interest/Principal Split) ────────
+  if (ACTIVE_STRATEGY === 9) {
+    function getLifetimeTotal(payAmount) {
+      let bal = statementBalance, total = 0, m = 0;
+      while (bal > 0 && m < 1200) {
+        m++;
+        const int  = payAmount >= statementBalance ? 0 : bal * monthlyRate;
+        const prin = Math.min(payAmount - int, bal);
+        bal   -= prin;
+        total += int + prin;
+      }
+      return total;
+    }
+
+    const minTotal    = getLifetimeTotal(38.00);
+    const customTotal = getLifetimeTotal(payment);
+    const fullTotal   = getLifetimeTotal(statementBalance);
+
+    const yMax9 = computeDynamicYMax([minTotal, customTotal, fullTotal]);
+
+    return applyChartData(existingChart, ctx, "bar", [
+      {
+        label: "Total Amount Paid",
+        data: [minTotal, customTotal, fullTotal],
+        backgroundColor: [COLOR_MIN_PATH, COLOR_CUSTOM, COLOR_TOTAL]
+      }
+    ], {
+      _labels: ["Minimum Due ($38/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($1,836.90)"],
+      _yMax: yMax9,
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { title: { display: true, text: "Payment Strategy", color: "var(--text-secondary)", font: { weight: 600 } } },
+        y: {
+          min: 0,
+          max: yMax9,
+          title: { display: true, text: "Total Amount Paid ($)", color: "var(--text-secondary)", font: { weight: 600 } },
+          ticks: { callback: v => "$" + v.toLocaleString() }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          padding: 12,
+          backgroundColor: "rgba(28,58,42,0.95)",
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => ` Total Paid: $${ctx.parsed.y.toFixed(2)}`
           }
         }
       }
     });
   }
 
-  // ─── STRATEGY 7: DYNAMIC CC AMORTIZATION BARS WITH TIME WINDOW TABS ─────
+  // ─── STRATEGY 5: Interest vs. Principal Breakdown (Donut) ─────────────────
+  if (ACTIVE_STRATEGY === 5) {
+    let totalInterest = 0;
+
+    if (payment < statementBalance) {
+      let bal = statementBalance;
+      const loops = isFinite(metrics.months) ? Math.ceil(metrics.months) : maxTimelineMonths;
+      for (let m = 1; m <= loops; m++) {
+        if (bal <= 0) break;
+        const interest = bal * monthlyRate;
+        const principal = Math.min(payment - interest, bal);
+        bal -= principal;
+        totalInterest += interest;
+      }
+    }
+
+    const paidInFull = totalInterest <= 0.01;
+    const chartData   = paidInFull
+      ? [statementBalance]
+      : [statementBalance, totalInterest];
+    const chartColors = paidInFull
+      ? [COLOR_PRINCIPAL]
+      : [COLOR_PRINCIPAL, COLOR_INTEREST];
+    const chartLabels = paidInFull
+      ? ["Statement Balance (Paid In Full)"]
+      : ["Statement Balance", "Total Interest Paid"];
+
+    return applyChartData(existingChart, ctx, "doughnut", [{
+      data: chartData,
+      backgroundColor: chartColors,
+      borderWidth: paidInFull ? 0 : 2,
+      hoverOffset: paidInFull ? 0 : 4
+    }], {
+      _labels: chartLabels,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 14, padding: 14, font: { family: "'Libre Franklin', sans-serif", size: 12 } } },
+        tooltip: {
+          padding: 12, backgroundColor: "rgba(28,58,42,0.95)",
+          callbacks: { label: ctx => ` ${ctx.label}: $${ctx.parsed.toFixed(2)}` }
+        }
+      }
+    });
+  }
+
+  // ─── STRATEGY 6: Cumulative Payment Progress (Decay Curve) ────────────────
+  if (ACTIVE_STRATEGY === 6) {
+    const labels = Array.from({ length: maxTimelineMonths }, (_, i) => `${i + 1}`);
+
+    function buildDecayLine(payAmount, markPayoff = false, isDynamicMin = false) {
+      let bal = statementBalance, totalPaid = 0;
+      const monthlyRaw = [];
+      let m = 0;
+
+      while (bal > 0 && m < 1200) {
+        m++;
+        let interest = bal * monthlyRate;
+        let eff = payAmount;
+
+        if (isDynamicMin) {
+          eff = Math.max(20.00, (bal + interest) * 0.02);
+        } else if (payAmount >= statementBalance) {
+          interest = 0; eff = statementBalance;
+        }
+
+        const principal = Math.min(eff - interest, bal);
+        bal       -= principal;
+        totalPaid += interest + principal;
+        monthlyRaw.push({ totalPaid, done: bal <= 0 });
+      }
+
+      const data   = [];
+      const radii  = [];
+      let marked   = false;
+
+      for (let i = 1; i <= maxTimelineMonths; i++) {
+        if (i <= monthlyRaw.length) {
+          const rec = monthlyRaw[i - 1];
+          data.push(rec.totalPaid);
+          if (markPayoff) {
+            if (rec.done && !marked) { radii.push(7); marked = true; }
+            else radii.push(0);
+          }
+        } else {
+          const last = monthlyRaw[monthlyRaw.length - 1];
+          data.push(last ? last.totalPaid : totalPaid);
+          if (markPayoff) radii.push(0);
+        }
+      }
+
+      return { data, radii: markPayoff ? radii : 0 };
+    }
+
+    const minLine    = buildDecayLine(38.00);
+    const customLine = buildDecayLine(payment, true);
+    const fullLine   = buildDecayLine(statementBalance);
+
+    const yMax = computeDynamicYMax([...minLine.data, ...customLine.data, ...fullLine.data].filter(v => isFinite(v)));
+
+    return applyChartData(existingChart, ctx, "line", [
+      { label: "Minimum Payment ($38/mo Fixed)",    data: minLine.data,    borderColor: COLOR_MIN_PATH, borderWidth: 2, pointRadius: 0, tension: 0.15 },
+      { label: "Your Payment Choice",               data: customLine.data, borderColor: COLOR_CUSTOM,   borderWidth: 4, fill: true, backgroundColor: "rgba(0,102,204,0.07)", pointRadius: customLine.radii, pointBackgroundColor: COLOR_CUSTOM, pointBorderColor: "#FFFFFF", pointBorderWidth: 2, pointHoverRadius: 10, tension: 0.05 },
+      { label: "Pay Statement Balance ($1,836.90)", data: fullLine.data,   borderColor: COLOR_TOTAL,    borderWidth: 1.5, borderDash: [5,5], pointRadius: 0, tension: 0.05 }
+    ], {
+      _labels: labels,
+      _yMax: yMax,
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { title: { display: true, text: "Months Since First Payment", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { autoSkip: true, maxTicksLimit: 12 } },
+        y: { min: 0, max: yMax, title: { display: true, text: "Total Paid ($)", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { callback: v => "$" + v.toLocaleString() } }
+      },
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 12, padding: 14, font: { size: 11.5, family: "'Libre Franklin', sans-serif" } } },
+        tooltip: {
+          padding: 12, backgroundColor: "rgba(28,58,42,0.95)",
+          titleFont: { size: 13, weight: 700 }, bodyFont: { size: 12 },
+          callbacks: {
+            title: ctx => `Month ${ctx[0].label}`,
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`
+          }
+        }
+      }
+    });
+  }
+
+  // ─── STRATEGY 7: Payment Progress (Zoomable Tabs) ─────────────────────────
   if (ACTIVE_STRATEGY === 7) {
-    let perfectWindow = selectedTimeWindowMonths;
-    if (displayMonths <= 12) perfectWindow = 12;
+    let perfectWindow;
+    if (displayMonths <= 12)      perfectWindow = 12;
     else if (displayMonths <= 36) perfectWindow = 36;
-    else perfectWindow = 140;
+    else                          perfectWindow = displayMonths;
 
     if (perfectWindow !== selectedTimeWindowMonths) {
       selectedTimeWindowMonths = perfectWindow;
-      const tabs = document.querySelectorAll(".time-tab");
-      tabs.forEach(t => {
-        if (parseInt(t.getAttribute("data-months"), 10) === perfectWindow) t.classList.add("active");
-        else t.classList.remove("active");
-      });
+      syncActiveTab(perfectWindow);
     }
 
+    const { interestData, principalData } = buildCumulativeSeries(
+      payment, selectedTimeWindowMonths, statementBalance, monthlyRate
+    );
+
+    const stackedTotals = interestData.map((v, i) =>
+      (v !== null && principalData[i] !== null) ? v + principalData[i] : null
+    );
+    const yMax  = computeDynamicYMax(stackedTotals.filter(v => v !== null));
     const labels = Array.from({ length: selectedTimeWindowMonths }, (_, i) => `${i + 1}`);
-    let balance = currentBalance;
-    let totalInterestSoFar = 0;
-    let totalPrincipalSoFar = 0;
-    const cumulativeInterest = [];
-    const cumulativePrincipal = [];
 
-    for (let m = 1; m <= selectedTimeWindowMonths; m++) {
-      if (balance > 0) {
-        // Fix: Apply standard grace period for full statement payments
-        const interest = payment >= currentBalance ? 0 : balance * monthlyRate;
-        const principal = Math.min(payment - interest, balance);
-        balance -= principal;
-        
-        totalInterestSoFar += interest;
-        totalPrincipalSoFar += principal;
-        
-        cumulativeInterest.push(totalInterestSoFar);
-        cumulativePrincipal.push(totalPrincipalSoFar);
-      } else {
-        cumulativeInterest.push(null);
-        cumulativePrincipal.push(null);
-      }
-    }
-
-    return new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [
-          { label: "Cumulative Interest Accrued", data: cumulativeInterest, backgroundColor: "#9B3232" },
-          { label: "Cumulative Principal Reduced (Fixed Custom Path)", data: cumulativePrincipal, backgroundColor: "#2E6B4F" }
-        ]
+    return applyChartData(existingChart, ctx, "bar", [
+      { label: "Interest Paid",  data: interestData,  backgroundColor: COLOR_INTEREST  },
+      { label: "Principal Paid", data: principalData, backgroundColor: COLOR_PRINCIPAL }
+    ], {
+      _labels: labels,
+      _yMax: yMax,
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { stacked: true, title: { display: true, text: "Months Since First Payment", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { autoSkip: true, maxTicksLimit: 12 } },
+        y: { stacked: true, min: 0, max: yMax, title: { display: true, text: "Total Paid ($)", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { callback: v => "$" + v.toLocaleString() } }
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: { duration: 0 }, 
-        interaction: { mode: 'index', intersect: false },
-        scales: {
-          x: { stacked: true, title: { display: true, text: 'Timeline Month Index (Recalculated Path View)', color: 'var(--text-secondary)' }, ticks: { autoSkip: true, maxTicksLimit: 12 } },
-          y: { stacked: true, min: 0, max: maxLifetimeCost, title: { display: true, text: 'Total Cumulative Output ($)' }, ticks: { callback: v => '$' + v.toLocaleString() } }
-        },
-        plugins: {
-          legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 10, font: { family: "'Libre Franklin', sans-serif" } } },
-          tooltip: { callbacks: { label: function(context) { return ` ${context.dataset.label}: $${context.parsed.y.toFixed(2)}`; } } }
-        },
-        barPercentage: 0.85,
-        categoryPercentage: 0.85
-      }
+      plugins: {
+        legend: { display: true, position: "top", labels: { boxWidth: 12, padding: 14, font: { family: "'Libre Franklin', sans-serif", size: 12 } } },
+        tooltip: {
+          mode: "index", intersect: false, padding: 12,
+          backgroundColor: "rgba(28,58,42,0.95)",
+          titleFont: { size: 13, weight: 700 }, bodyFont: { size: 12 },
+          callbacks: {
+            title: ctx => `Month ${ctx[0].label}`,
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`,
+            footer: items => `Total Paid: $${items.reduce((s,i)=>s+i.parsed.y,0).toFixed(2)}`
+          }
+        }
+      },
+      barPercentage: 0.85,
+      categoryPercentage: 0.85
     });
   }
 }

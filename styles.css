@@ -49,7 +49,7 @@ body {
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 1000;
   background: var(--primary-dark);
   border-bottom: 3px solid var(--primary);
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
@@ -200,11 +200,17 @@ body {
   display: grid;
   grid-template-columns: 1fr 1.5fr;
   gap: 24px;
-  align-items: stretch;
+  align-items: start; /* stretch was letting height cascade; start anchors each col independently */
 }
 
 .col-left, .col-right { display: flex; flex-direction: column; }
 .section-card.h-full { flex: 1; }
+
+/* Right column card: fixed minimum so chart area never causes layout shift */
+.col-right .section-card {
+  min-height: 560px;
+  overflow: hidden;
+}
 
 .content-section {
   display: flex;
@@ -390,17 +396,19 @@ body {
   border-left: 4px solid var(--primary);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   padding: 14px 18px;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   color: var(--text-primary);
-  line-height: 1.7;
+  line-height: 1.6;
+  /* Fixed height so changing values don't reflow and push content below */
+  min-height: 58px;
 }
 .scenario-callout strong { color: var(--primary); }
 
 /* ─── Results Grid ───────────────────────────────────── */
 .results-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
@@ -408,7 +416,16 @@ body {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 18px 20px;
+  padding: 14px 16px;
+  /* Tall enough for label + value with breathing room, never grows */
+  height: 76px;
+  min-height: 76px;
+  max-height: 76px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
 }
 
 .result-card--total {
@@ -417,23 +434,27 @@ body {
 }
 
 .result-label {
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
-  margin-bottom: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .result-value {
-  font-size: 1.0rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.2;
-  white-space: pre-line;
+  line-height: 1.25;
+  /* Values guaranteed single-line by formatDurationText compact format */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .result-card--total .result-value { color: var(--primary); }
-.result-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+.result-sub { font-size: 0.68rem; color: var(--text-muted); margin-top: 1px; }
 
 .disclaimer {
   font-size: 0.8rem;
@@ -462,8 +483,12 @@ body {
 .canvas-holder {
   position: relative;
   width: 100%;
+  /* Fixed height prevents canvas resize from pushing page content */
   height: 300px;
+  min-height: 300px;
+  max-height: 300px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 /* ─── Submit Section ─────────────────────────────────── */
@@ -546,10 +571,11 @@ body {
 }
 .time-tab:hover { background: var(--accent-light); color: var(--primary); border-color: var(--accent); }
 .time-tab.active {
-  background: var(--primary);
-  color: #FFFFFF;
-  border-color: var(--primary);
-  box-shadow: 0 2px 6px rgba(46,107,79,0.2);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  box-shadow: 0 1px 3px rgba(28,58,42,0.1);
+  font-weight: 700;
 }
 
 /* ─── Failsafe Custom Infinite Layout Engine ─── */
@@ -586,59 +612,264 @@ body {
 @media (max-width: 760px) {
   html { font-size: 15px; }
 
-  /* Navbar */
+  /* Navbar — hide hamburger icon, let brand breathe */
   .navbar { padding: 0 16px; height: 52px; }
-  .brand-name { font-size: 1.1rem; }
+  .nav-icon { display: none; }
+  .brand-name { font-size: 1.05rem; }
+  #logo { font-size: 1.2rem; }
 
-  /* Hero */
-  .hero-bar { padding: 24px 0 28px; }
-  .hero-inner { flex-direction: column; gap: 12px; padding: 16px; }
-  .hero-icon { font-size: 3.5rem; }
-  .hero-title { font-size: 1.4rem; }
-  .hero-sub { font-size: 0.88rem; }
+  /* Hero — hide decorative icon on small screens to save vertical space */
+  .hero-bar { padding: 20px 0 24px; }
+  .hero-inner { flex-direction: row; align-items: center; gap: 14px; padding: 0 16px; }
+  .hero-icon { display: none; }
+  .hero-title { font-size: 1.3rem; }
+  .hero-sub { font-size: 0.85rem; }
 
-  /* Account summary */
-  .account-summary { flex-direction: column; }
-  .account-item { border-right: none; border-bottom: 1px solid var(--border); padding: 14px 16px; }
-  .account-item:last-child { border-bottom: none; }
-  .status-badge-container { padding: 14px 16px; }
+  /* Account summary — horizontal 2-up grid instead of full column stack */
+  .account-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+  .account-item {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+  }
+  .account-item:nth-child(1) { border-right: 1px solid var(--border); }
+  .account-item.highlight { grid-column: 1 / -1; border-right: none; }
+  .status-badge-container {
+    grid-column: 1 / -1;
+    padding: 10px 14px;
+    border-top: none;
+  }
+  .acct-value { font-size: 0.88rem !important; }
 
   /* Page layout */
-  .page-body { padding: 20px 0 36px; }
-  .wrap { padding: 0 14px; gap: 16px; }
-  .section-card { padding: 18px 16px; }
+  .page-body { padding: 16px 0 40px; }
+  .wrap { padding: 0 12px; gap: 14px; }
+  .section-card { padding: 16px 14px; }
 
-  /* Payment options */
-  .option-row { gap: 10px; padding: 12px 14px; }
-  .option-title { font-size: 0.9rem; }
-  .option-desc { font-size: 0.8rem; }
+  /* Payment options — bigger tap targets */
+  .option-row { gap: 12px; padding: 14px 12px; }
+  .option-row input[type="radio"] { width: 18px; height: 18px; margin-top: 2px; }
+  .option-title { font-size: 0.92rem; }
+  .option-desc { font-size: 0.8rem; line-height: 1.5; }
 
-  /* Results */
-  .results-grid { grid-template-columns: 1fr; }
-  .result-value { font-size: 0.95rem; }
+  /* Custom amount input — full width on mobile */
+  .custom-input-wrap { max-width: 100%; }
+  #paymentInput { width: 100%; }
+
+  /* Results — stack to 1 col on mobile, keep fixed heights */
+  .results-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .result-card { padding: 12px 10px; height: 72px; min-height: 72px; max-height: 72px; }
+  .result-value { font-size: 0.74rem; }
+  .result-label { font-size: 0.65rem; }
 
   /* Chart */
-  .canvas-holder { height: 240px; }
-  .chart-tabs-container { gap: 6px; flex-wrap: wrap; }
-  .time-tab { padding: 5px 12px; font-size: 0.75rem; }
-  .chart-title { font-size: 0.8rem; }
+  .canvas-holder { height: 220px; min-height: 220px; max-height: 220px; }
+  .chart-tabs-container { gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
+  .time-tab { padding: 5px 11px; font-size: 0.74rem; }
+  .chart-title { font-size: 0.78rem; margin-bottom: 10px; }
+  #chartPayoffBadge { display: block; margin-left: 0 !important; margin-top: 4px; font-size: 0.8rem; }
 
-  /* Slider */
-  .slider-intro { font-size: 0.88rem; }
-  .scenario-callout { font-size: 0.85rem; padding: 12px 14px; }
+  /* Slider — larger thumb for finger tapping */
+  #paymentRange { height: 10px; margin: 16px 0; }
+  #paymentRange::-webkit-slider-thumb { width: 26px; height: 26px; margin-top: -8px; }
+  #paymentRange::-moz-range-thumb { width: 26px; height: 26px; }
+  .slider-labels { font-size: 0.72rem; }
+  .slider-intro { font-size: 0.86rem; margin-bottom: 4px; }
+  .scenario-callout { font-size: 0.84rem; padding: 12px 13px; line-height: 1.65; }
 
   /* Submit */
-  .submit-card { flex-direction: column; align-items: stretch; gap: 16px; padding: 18px 16px; }
-  .btn-submit { width: 100%; text-align: center; padding: 14px 20px; font-size: 0.95rem; }
-  .submit-text { font-size: 0.85rem; }
+  .submit-card { flex-direction: column; align-items: stretch; gap: 14px; padding: 16px 14px; }
+  .btn-submit {
+    width: 100%;
+    text-align: center;
+    padding: 16px 20px;
+    font-size: 1rem;
+    border-radius: var(--radius-lg);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .submit-text { font-size: 0.84rem; }
 
-  /* Disable hover scale effect on touch devices to avoid sticky states */
+  /* Disable hover scale on touch — avoids sticky scale state after tap */
   .section-card:hover, .submit-card:hover { transform: none; box-shadow: var(--shadow-sm); }
 }
 
 @media (max-width: 400px) {
   .wrap { padding: 0 10px; }
-  .hero-title { font-size: 1.25rem; }
-  .section-card { padding: 14px 12px; }
-  .canvas-holder { height: 200px; }
+  .hero-title { font-size: 1.15rem; }
+  .section-card { padding: 13px 11px; }
+  .canvas-holder { height: 190px; min-height: 190px; max-height: 190px; }
+
+  /* Stack results vertically on very small screens */
+  .results-grid { grid-template-columns: 1fr; }
+
+  /* Collapse account summary to single column */
+  .account-summary { grid-template-columns: 1fr; }
+  .account-item:nth-child(1) { border-right: none; }
+  .account-item.highlight { grid-column: auto; }
+  .status-badge-container { grid-column: auto; }
+}
+/* ─── Layout, Account Header, & Payoff Summary Structural Additions ─── */
+
+/* 1. Fix Layout Overlap: Ensure columns take up proper side-by-side spacing */
+.two-col-row {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr; /* Balanced left control panel and right data panel */
+  gap: 24px;
+  align-items: stretch;
+}
+
+/* 2. Format Account Summary Bar Elements */
+.account-summary {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.account-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px;
+  border-right: 1px solid var(--border);
+}
+
+.account-item.highlight {
+  background: var(--primary-light);
+}
+
+.acct-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.acct-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.status-badge-container {
+  padding: 0 18px;
+}
+
+.status-badge {
+  background: var(--warning-light);
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* result-card rules consolidated above */
+
+/* canvas-holder height is defined above — duplicate removed */
+
+#chartInfiniteOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none; /* Controlled dynamically via visualizations.js */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--radius-md);
+  text-align: center;
+  padding: 20px;
+  z-index: 5;
+}
+
+/* 5. Mobile Layout Adjustments */
+@media (max-width: 760px) {
+  .two-col-row {
+    grid-template-columns: 1fr; /* Stack columns vertically on smaller screens */
+  }
+  .account-summary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .account-item {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .status-badge-container {
+    padding: 14px 18px;
+    text-align: left;
+  }
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* ─── Three-Card Summary Grid ────────────────────────── */
+.results-grid {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.result-card--interest {
+  border-color: #E07B00;
+  background: rgba(224,123,0,0.08);
+}
+.result-card--interest .result-value {
+  color: #E07B00;
+}
+
+/* ─── Visualization Description ─────────────────────── */
+.viz-desc {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  margin-top: -4px;
+  line-height: 1.55;
+  font-style: italic;
+}
+
+/* ─── Responsive: three cards → two columns on mobile ─ */
+@media (max-width: 760px) {
+  .results-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .result-card:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ─── Remainder Balance Note ─────────────────────────── */
+.remainder-note {
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: rgba(123,47,190,0.07);
+  border-left: 4px solid #7B2FBE;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.remainder-note strong {
+  color: #7B2FBE;
+}
+
+/* ─── Chart Canvas Fade-In (radio / init transitions only) ── */
+@keyframes chartFadeIn {
+  from { opacity: 0.8; }
+  to   { opacity: 1;   }
+}
+#stackedChart.chart-fade-in {
+  animation: chartFadeIn 180ms ease-out forwards;
 }
