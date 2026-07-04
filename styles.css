@@ -33,6 +33,17 @@
 
   --shadow-sm: 0 2px 8px rgba(28,58,42,0.08);
   --shadow-md: 0 6px 20px rgba(28,58,42,0.13);
+
+  /* ─── Layout Density Configuration ───────────────────────────────
+     Central knobs for the compact, above-the-fold research layout.
+     Raise these values to restore a roomier layout without editing
+     individual rules; the rules below consume these variables. */
+  --density-page-pad-top: 16px;   /* space above the working area      */
+  --density-stack-gap:    16px;   /* gap between stacked major sections */
+  --density-col-gap:      18px;   /* gap between the two main columns   */
+  --density-card-pad-y:   16px;   /* card vertical padding              */
+  --density-card-pad-x:   20px;   /* card horizontal padding            */
+  --density-chart-h:      300px;  /* chart canvas height (desktop)      */
 }
 
 html { font-size: 16px; }
@@ -56,8 +67,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  height: 56px;
+  padding: 0 20px;
+  height: 50px;
 }
 
 .nav-brand {
@@ -89,28 +100,30 @@ body {
 /* ─── Hero Banner ────────────────────────────────────── */
 .hero-bar {
   background: var(--primary-dark);
-  padding: 36px 0 40px;
+  padding: 14px 0 16px;
   box-shadow: 0 8px 16px rgba(0,0,0,0.10);
 }
 .hero-icon {
-  font-size: 6.5rem;
+  font-size: 2.8rem;
   color: var(--accent);
   flex-shrink: 0;
 }
 .hero-inner {
   display: flex;
+  align-items: center;
+  gap: 18px;
   max-width: 1160px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 0 24px;
 }
 
 .hero-title {
   font-family: 'DM Serif Display', Georgia, serif;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 400;
   color: #F7F5F0;
   line-height: 1.2;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 
 .hero-sub {
@@ -185,7 +198,7 @@ body {
 }
 
 /* ─── Page Body ──────────────────────────────────────── */
-.page-body { padding: 32px 0 48px; }
+.page-body { padding: var(--density-page-pad-top) 0 40px; }
 
 .wrap {
   max-width: 1160px;
@@ -193,7 +206,7 @@ body {
   padding: 0 24px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--density-stack-gap);
 }
 
 .two-col-row {
@@ -206,9 +219,10 @@ body {
 .col-left, .col-right { display: flex; flex-direction: column; }
 .section-card.h-full { flex: 1; }
 
-/* Right column card: fixed minimum so chart area never causes layout shift */
+/* Right column card: fills its column; the fixed-height canvas-holder
+   (below) already prevents layout shift, so no large min-height is needed. */
 .col-right .section-card {
-  min-height: 560px;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -222,7 +236,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 24px 28px;
+  padding: var(--density-card-pad-y) var(--density-card-pad-x);
   box-shadow: var(--shadow-sm);
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
@@ -235,17 +249,17 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .option-row {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 14px 16px;
+  padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -325,7 +339,7 @@ body {
 }
 
 .slider-track-area { 
-  margin: 16px 0;    
+  margin: 10px 0;    
   width: 100%;
 }
 
@@ -347,7 +361,7 @@ body {
   background: var(--bg-surface);
   border-radius: var(--radius-sm);
   outline: none;
-  margin: 12px 0;
+  margin: 10px 0;
   display: block;
   cursor: pointer;
 }
@@ -395,12 +409,12 @@ body {
   background: var(--primary-light);
   border-left: 4px solid var(--primary);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 14px 18px;
+  padding: 12px 16px;
   font-size: 0.88rem;
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.55;
   /* Fixed height so changing values don't reflow and push content below */
-  min-height: 58px;
+  min-height: 54px;
 }
 .scenario-callout strong { color: var(--primary); }
 
@@ -408,19 +422,19 @@ body {
 .results-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .result-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
+  padding: 12px 14px;
   /* Tall enough for label + value with breathing room, never grows */
-  height: 76px;
-  min-height: 76px;
-  max-height: 76px;
+  height: 68px;
+  min-height: 68px;
+  max-height: 68px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -457,25 +471,25 @@ body {
 .result-sub { font-size: 0.68rem; color: var(--text-muted); margin-top: 1px; }
 
 .disclaimer {
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
 }
 
 /* ─── Chart Section ─────────────────────────────────── */
 .chart-section {
-  margin-top: 24px;
+  margin-top: 12px;
   border-top: 1px solid var(--border);
-  padding-top: 20px;
+  padding-top: 12px;
 }
 
 .chart-title {
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -483,10 +497,11 @@ body {
 .canvas-holder {
   position: relative;
   width: 100%;
-  /* Fixed height prevents canvas resize from pushing page content */
-  height: 300px;
-  min-height: 300px;
-  max-height: 300px;
+  /* Fixed height prevents canvas resize from pushing page content.
+     Height is driven by --density-chart-h so the chart stays large. */
+  height: var(--density-chart-h);
+  min-height: var(--density-chart-h);
+  max-height: var(--density-chart-h);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -718,8 +733,8 @@ body {
 /* 1. Fix Layout Overlap: Ensure columns take up proper side-by-side spacing */
 .two-col-row {
   display: grid;
-  grid-template-columns: 1fr 1.3fr; /* Balanced left control panel and right data panel */
-  gap: 24px;
+  grid-template-columns: 1fr 1.35fr; /* Left control panel + wider right data/chart panel */
+  gap: var(--density-col-gap);
   align-items: stretch;
 }
 
@@ -732,14 +747,14 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .account-item {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 14px 18px;
+  padding: 10px 16px;
   border-right: 1px solid var(--border);
 }
 
@@ -751,7 +766,7 @@ body {
   font-size: 0.75rem;
   color: var(--text-secondary);
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .acct-value {
@@ -834,9 +849,9 @@ body {
 .viz-desc {
   font-size: 0.83rem;
   color: var(--text-muted);
-  margin-bottom: 14px;
-  margin-top: -4px;
-  line-height: 1.55;
+  margin-bottom: 8px;
+  margin-top: -2px;
+  line-height: 1.5;
   font-style: italic;
 }
 
@@ -852,8 +867,8 @@ body {
 
 /* ─── Remainder Balance Note ─────────────────────────── */
 .remainder-note {
-  margin-top: 16px;
-  padding: 10px 14px;
+  margin-top: 10px;
+  padding: 9px 13px;
   background: rgba(123,47,190,0.07);
   border-left: 4px solid #7B2FBE;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -872,4 +887,114 @@ body {
 }
 #stackedChart.chart-fade-in {
   animation: chartFadeIn 180ms ease-out forwards;
+}
+/* ─── Compact Above-the-Fold Arrangement ─────────────────────────────
+   The payment slider now sits in the LEFT column, directly beneath the
+   payment options, so the Account Summary, Payment Options, Summary
+   Metrics, Visualization, and Slider all fit within one desktop viewport
+   without shrinking the chart. Toggle the density via the
+   --density-* variables in :root. Nothing above is removed. */
+
+/* Left column: options card sits at natural height; the slider card
+   grows to fill the remaining height so both columns bottom-align. */
+.col-left > .section-card:first-child { flex: 0 0 auto; }
+.col-left > #sliderSection {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Right column card fills its column height for a clean, aligned edge. */
+.col-right > .section-card { flex: 1 1 auto; }
+
+/* Slider intro line — compact base (previously only styled on mobile). */
+.slider-intro {
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+/* On stacked (single-column) layouts the slider card should not stretch. */
+@media (max-width: 900px) {
+  .col-left > #sliderSection { flex: 0 0 auto; justify-content: flex-start; }
+}
+
+/* ─── Short-Viewport Compact Tier ────────────────────────────────────
+   On wide-but-short desktop viewports (e.g. 1366×768, 1536×864,
+   1440×900) the Account Summary, Payment Options, Summary Metrics,
+   Visualization, and Slider all need to fit above the fold. This tier
+   tightens spacing further and gives the chart column slightly more
+   width. Taller screens (e.g. 1920×1080) keep the roomier base layout.
+   Everything is driven by the --density-* knobs plus a few line-height
+   trims; nothing is removed. Gated on min-width so mobile is untouched. */
+@media (min-width: 901px) and (max-height: 900px) {
+  :root {
+    --density-page-pad-top: 10px;
+    --density-stack-gap:     12px;
+    --density-col-gap:       16px;
+    --density-card-pad-y:    13px;
+    --density-card-pad-x:    16px;
+    --density-chart-h:       265px;   /* still the single largest element */
+  }
+
+  .navbar   { height: 46px; }
+  .hero-bar { padding: 8px 0 10px; }
+  .hero-icon { font-size: 2.2rem; }
+  .hero-title { font-size: 1.35rem; margin-bottom: 2px; }
+  .hero-sub {
+    font-size: 0.8rem; line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  .account-item { padding: 7px 16px; }
+  .acct-value   { font-size: 0.88rem; }
+
+  /* Give the control column a touch more width so long option
+     descriptions wrap onto fewer lines (shorter rows). */
+  .two-col-row { grid-template-columns: 1fr 1.2fr; }
+
+  .options-legend { margin-bottom: 6px; }
+  .option-row  { padding: 8px 12px; margin-bottom: 5px; }
+  .option-desc { line-height: 1.35; }
+
+  .results-grid { gap: 8px; margin-bottom: 5px; }
+  .result-card  { height: 60px; min-height: 60px; max-height: 60px; padding: 10px 13px; }
+
+  .disclaimer   { font-size: 0.72rem; margin-top: 6px; padding-top: 6px; }
+  .viz-desc     { font-size: 0.8rem; margin-bottom: 6px; }
+  .chart-title  { margin-bottom: 6px; }
+
+  .slider-intro     { font-size: 0.82rem; margin-bottom: 4px; }
+  .slider-track-area{ margin: 6px 0; }
+  .scenario-callout { font-size: 0.83rem; line-height: 1.4; padding: 10px 14px; min-height: 40px; }
+
+  .remainder-note { font-size: 0.76rem; padding: 7px 11px; margin-top: 8px; line-height: 1.4; }
+}
+
+/* ─── Shortest-Viewport Sub-Tier (≈768px tall) ───────────────────────
+   Only the very shortest desktop screens (e.g. 1366×768) need this
+   final squeeze. It widens the control column so the long option
+   descriptions and the dynamic slider sentence wrap onto fewer lines,
+   and trims the hero — WITHOUT shrinking the chart, which stays 265px
+   (still by far the largest element). Taller screens never see this. */
+@media (min-width: 901px) and (max-height: 800px) {
+  .hero-bar  { padding: 5px 0 6px; }
+  .hero-icon { font-size: 2rem; }
+  .hero-title { font-size: 1.3rem; margin-bottom: 1px; }
+  .hero-sub  { -webkit-line-clamp: 1; }
+
+  .account-item { padding: 5px 16px; }
+
+  /* Equal columns: the control column gets wider, so the option
+     descriptions and slider sentence need fewer lines. */
+  .two-col-row { grid-template-columns: 1fr 1fr; }
+
+  .option-row  { padding: 6px 11px; margin-bottom: 4px; }
+  .option-desc { line-height: 1.3; }
+  .options-legend { margin-bottom: 4px; }
+
+  .scenario-callout { font-size: 0.82rem; line-height: 1.35; padding: 9px 13px; min-height: 36px; }
+  .slider-track-area { margin: 5px 0; }
 }

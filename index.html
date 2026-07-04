@@ -54,7 +54,7 @@
       <div class="two-col-row">
 
         <section class="content-section col-left">
-          <div class="section-card h-full">
+          <div class="section-card">
             <fieldset class="options-fieldset">
               <legend class="options-legend">Select your monthly payment option</legend>
               
@@ -62,7 +62,7 @@
                 <input type="radio" name="payOption" value="dynamic-min">
                 <div class="option-content">
                   <span class="option-title">Pay Minimum Amount Due (Recalculated Monthly)</span>
-                  <span class="option-desc">Starts at $38.00 &mdash; Required baseline trajectory that updates automatically based on remaining balance to avoid late fees</span>
+                  <span class="option-desc">Starts at $38.00</span>
                 </div>
               </label>
 
@@ -95,6 +95,20 @@
               </label>
             </fieldset>
           </div>
+
+          <section id="sliderSection" class="section-card slider-card">
+            <p class="slider-intro">Adjust your monthly payment:</p>
+            <div class="slider-track-area">
+              <div class="slider-labels">
+                <span>$0.00</span>
+                <span>$1,836.90 (Statement Balance)</span>
+              </div>
+              <input id="paymentRange" type="range" min="0.00" max="1836.90" step="0.01" value="38" />
+            </div>
+            <div class="scenario-callout">
+              If you pay <strong>$<span id="descPayment">—</span></strong> per month, you will pay off your statement balance in <strong><span id="descYears">—</span></strong>. During this time, you will accumulate <strong>$<span id="descAccruedInterest">0.00</span></strong> in interest charges, bringing your total payment to <strong>$<span id="descTotal">—</span></strong>.
+            </div>
+          </section>
         </section>
 
         <section class="content-section col-right">
@@ -145,22 +159,6 @@
         </section>
 
       </div>
-
-      <section id="sliderSection" class="content-section">
-        <div class="section-card">
-          <p class="slider-intro">Drag the slider to see how different payment amounts change your payoff timeline and total cost.</p>
-          <div class="slider-track-area">
-            <div class="slider-labels">
-              <span>$0.00</span>
-              <span>$1,836.90 (Statement Balance)</span>
-            </div>
-            <input id="paymentRange" type="range" min="0.00" max="1836.90" step="0.01" value="38" />
-          </div>
-          <div class="scenario-callout">
-            If you pay <strong>$<span id="descPayment">—</span></strong> per month with no new charges, you will pay off your statement balance in <strong><span id="descYears">—</span></strong>. During this time, you will accumulate <strong>$<span id="descAccruedInterest">0.00</span></strong> in interest charges, bringing your total out-of-pocket payment to <strong>$<span id="descTotal">—</span></strong>.
-          </div>
-        </div>
-      </section>
 
       <section class="submit-section">
         <div class="submit-card">
