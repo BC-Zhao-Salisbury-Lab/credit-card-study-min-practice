@@ -334,12 +334,12 @@ body {
 }
 
 #sliderSection .section-card {
-  width: 100%;       
+  width: 100%;
   box-sizing: border-box;
 }
 
-.slider-track-area { 
-  margin: 10px 0;    
+.slider-track-area {
+  margin: 10px 0;
   width: 100%;
 }
 
@@ -611,7 +611,7 @@ body {
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
-  background: #FFFFFF !important; 
+  background: #FFFFFF !important;
   z-index: 999 !important;
 }
 
@@ -997,4 +997,84 @@ body {
 
   .scenario-callout { font-size: 0.82rem; line-height: 1.35; padding: 9px 13px; min-height: 36px; }
   .slider-track-area { margin: 5px 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INFORMATION DENSITY / INTERFACE CONFIGURATION   (driven by config.js)
+   ───────────────────────────────────────────────────────────────────────────
+   config.js reads the central CONFIG object and toggles the body classes
+   below. These rules ONLY change component visibility and spacing — they never
+   touch calculations, payment logic, or research data collection.
+   !important is used on the visibility rules so they reliably win over any
+   inline display set elsewhere (e.g. the timeline tabs' inline style, or the
+   descriptions injected at runtime by visualizations.js).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Component visibility ─────────────────────────────────────────────────── */
+body.cfg-hide-hero          .hero-bar         { display: none !important; }
+body.cfg-hide-account       .account-summary  { display: none !important; }
+body.cfg-hide-summary       .results-grid     { display: none !important; }
+body.cfg-hide-viz-desc      .viz-desc,
+body.cfg-hide-viz-desc      .remainder-note   { display: none !important; }
+body.cfg-hide-slider-desc   .slider-intro,
+body.cfg-hide-slider-desc   .scenario-callout { display: none !important; }
+body.cfg-hide-disclaimer    .disclaimer       { display: none !important; }
+body.cfg-hide-timeline-tabs #chartTimeTabs    { display: none !important; }
+body.cfg-hide-option-desc   .option-desc      { display: none !important; }
+
+/* When the slider guidance is hidden, close the gap it used to occupy so the
+   slider control still sits comfortably inside its card. */
+body.cfg-hide-slider-desc #sliderSection { justify-content: center; }
+
+/* ── Forced compact spacing (compactLayout:true) ─────────────────────────────
+   Applies the tight, above-the-fold density scale at EVERY screen height, not
+   just short viewports. Values mirror the short-viewport media tier so the
+   chart stays the single largest element. compactLayout:"auto" (the default)
+   adds no class here and keeps the delivered responsive behaviour. */
+body.cfg-compact {
+  --density-page-pad-top: 10px;
+  --density-stack-gap:    12px;
+  --density-col-gap:      16px;
+  --density-card-pad-y:   13px;
+  --density-card-pad-x:   16px;
+  --density-chart-h:      265px;
+}
+body.cfg-compact .hero-bar   { padding: 10px 0 12px; }
+body.cfg-compact .hero-icon  { font-size: 2.2rem; }
+body.cfg-compact .hero-title { font-size: 1.35rem; }
+
+/* ── Roomier spacing (compactLayout:false) ───────────────────────────────────
+   Overrides the density defaults for the whole page. Because these custom
+   properties are set on <body>, they win over the :root values (and the
+   short-viewport media tiers) for all descendant content. */
+body.cfg-roomy {
+  --density-page-pad-top: 28px;
+  --density-stack-gap:    22px;
+  --density-col-gap:      24px;
+  --density-card-pad-y:   22px;
+  --density-card-pad-x:   26px;
+  --density-chart-h:      340px;
+}
+body.cfg-roomy .hero-bar   { padding: 26px 0 30px; }
+body.cfg-roomy .hero-icon  { font-size: 3.4rem; }
+body.cfg-roomy .hero-title { font-size: 1.7rem; }
+body.cfg-roomy .option-row { padding: 13px 16px; margin-bottom: 8px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STICKY FOOTER  (layout-only fix)
+   ─────────────────────────────────────────────────────────────────────────── */
+body { display: flex; flex-direction: column; }   /* min-height:100vh set above */
+.navbar, .hero-bar, .site-footer { flex-shrink: 0; }
+.page-body { flex: 1 0 auto; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VERTICAL CENTERING OF SHORT PAGES  (config.js: centerContentVertically)
+   ═══════════════════════════════════════════════════════════════════════════ */
+body.cfg-vcenter .page-body {
+  flex: 0 0 auto;          /* don't stretch; let the auto margins take the slack */
+  margin-top: auto;
+  margin-bottom: auto;
+  /* Match top padding so the visible content is centered, not biased downward
+     by the larger default bottom padding. */
+  padding-bottom: var(--density-page-pad-top);
 }

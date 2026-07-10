@@ -13,9 +13,30 @@
  * 0 = Hide tabs completely
  * 1 = Show only the active tab label as static text
  * 2 = Show all tabs (full interactive display)
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * These two values now live in the central CONFIG object (config.js) so they can
+ * be changed from the on-screen Research Control Panel without editing code.
+ * They remain ordinary variables here, initialised from CONFIG, so every chart
+ * function keeps reading ACTIVE_STRATEGY / TAB_DISPLAY_MODE exactly as before.
+ * When the panel changes a value it updates CONFIG, calls applyStrategyConfig()
+ * to refresh these variables, then triggers a redraw. No calculation changes.
  */
-const ACTIVE_STRATEGY   = 8;
-const TAB_DISPLAY_MODE  = 2;
+let ACTIVE_STRATEGY  = (window.CONFIG && window.CONFIG.activeStrategy != null)
+                         ? Number(window.CONFIG.activeStrategy) : 8;
+let TAB_DISPLAY_MODE = (window.CONFIG && window.CONFIG.tabDisplayMode != null)
+                         ? Number(window.CONFIG.tabDisplayMode) : 2;
+
+// Re-read the two visualization variables from CONFIG. Called by the Research
+// Control Panel after it mutates CONFIG, immediately before it requests a
+// redraw. Safe to call any time; it only copies values, nothing else.
+function applyStrategyConfig() {
+  if (window.CONFIG) {
+    if (window.CONFIG.activeStrategy != null) ACTIVE_STRATEGY  = Number(window.CONFIG.activeStrategy);
+    if (window.CONFIG.tabDisplayMode != null) TAB_DISPLAY_MODE = Number(window.CONFIG.tabDisplayMode);
+  }
+}
+window.applyStrategyConfig = applyStrategyConfig;
 
 let selectedTimeWindowMonths = 12;
 let tabsInitialized = false;
@@ -167,6 +188,11 @@ function applyVizMeta() {
     if (titleNode) titleNode.insertAdjacentElement("afterend", p);
     else chartCard.prepend(p);
   }
+
+  // Keep the injected description text in sync when the strategy changes at
+  // runtime (the element is created once above, then updated here thereafter).
+  const existingDesc = chartCard ? chartCard.querySelector(".viz-desc") : null;
+  if (existingDesc) existingDesc.textContent = meta.desc;
 }
 
 // ─── Payoff Badge ─────────────────────────────────────────────────────────────

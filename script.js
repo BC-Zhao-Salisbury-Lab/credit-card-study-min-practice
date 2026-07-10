@@ -1,6 +1,6 @@
 // ─── Study Version Control ──────────────────────────────────
 const urlParams = new URLSearchParams(window.location.search);
-const version = urlParams.get('v') !== null ? parseInt(urlParams.get('v'), 10) : 2; 
+const version = urlParams.get('v') !== null ? parseInt(urlParams.get('v'), 10) : 2;
 
 console.log("Current detected study condition version:", version);
 
@@ -13,8 +13,8 @@ function applyVersionUI() {
     console.log("Applying Version 0: Hiding Slider, Chart, and Custom Input");
     if (sliderSection) sliderSection.style.setProperty('display', 'none', 'important');
     if (chartSection)  chartSection.style.setProperty('display', 'none', 'important');
-    if (radioOther)    radioOther.style.setProperty('display', 'none', 'important'); 
-  } 
+    if (radioOther)    radioOther.style.setProperty('display', 'none', 'important');
+  }
   else if (version === 1) {
     console.log("Applying Version 1: Hiding Chart Only");
     if (chartSection)  chartSection.style.setProperty('display', 'none', 'important');
@@ -35,6 +35,16 @@ const STATEMENT_BALANCE = 1836.90;
 const ANNUAL_RATE     = 0.2299; // 22.99%
 const MONTHLY_RATE    = ANNUAL_RATE / 12;
 const MIN_PAYMENT     = 38.00;
+
+// ─── Slider Logging Behavior ────────────────────────────────
+// The range slider fires 'input' continuously while dragging, which previously
+// logged every intermediate value (inflating interactionCount and allChoices).
+// With commit logging on, a slider value is recorded only when the participant
+// (a) releases the slider, or (b) holds a position for SLIDER_LOG_DWELL_MS.
+// Live chart/summary rendering is unaffected — it still updates on every tick.
+// Set SLIDER_COMMIT_LOGGING = false to restore the legacy log-every-tick behavior.
+const SLIDER_COMMIT_LOGGING = true;
+const SLIDER_LOG_DWELL_MS   = 1000; // pause (ms) before a held value is logged
 
 // ─── State Management ───────────────────────────────────────
 let activeChart = null;
@@ -70,6 +80,14 @@ const descTotal          = document.getElementById("descTotal");
 const descAccruedInterest = document.getElementById("descAccruedInterest");
 
 const chartCtx     = document.getElementById("stackedChart") ? document.getElementById("stackedChart").getContext("2d") : null;
+
+// ─── Last-Render Memory (for the Research Control Panel) ─────
+// Records how the visualization was last drawn so a researcher changing a
+// display setting (e.g. chart type) can redraw with the participant's CURRENT
+// selection. This is display state only — it does NOT affect calculations,
+// logged research data, experimental version, or Qualtrics transmission.
+let _lastRenderMode = 'fixed';       // 'fixed' (a payment amount) or 'dynamic' (min trajectory)
+let _lastRenderPayment = MIN_PAYMENT;
 
 // ─── Mathematical Core Calculation Engines ──────────────────
 function computePayoffMetrics(monthlyPayment) {
@@ -154,6 +172,8 @@ function updateStatusBadge(paymentAmount) {
 }
 
 function render(paymentAmount) {
+  _lastRenderMode = 'fixed';            // remember how the chart was last drawn
+  _lastRenderPayment = paymentAmount;   // (display state only — see note above)
   if (typeof _animateNext !== 'undefined') _animateNext = true; // radio/init always animate
   const metrics = computePayoffMetrics(paymentAmount);
   const isInfinite = !isFinite(metrics.totalPaid);
@@ -166,7 +186,7 @@ function render(paymentAmount) {
   // ── Slider callout sentence ──────────────────────────────
   descPayment.textContent = paymentAmount.toFixed(2);
   descYears.textContent   = isInfinite ? "an infinite horizon" : formatDurationLong(metrics.months);
-  if (descAccruedInterest) descAccruedInterest.textContent = isInfinite ? "an ever-growing amount" : metrics.totalInterest.toFixed(2);
+  if (descAccruedInterest) descAccruedInterest.textContent = isInfinite ? "Infinite" : `${metrics.totalInterest.toFixed(2)}`;
   descTotal.textContent   = isInfinite ? "Infinite" : metrics.totalPaid.toFixed(2);
 
   updateStatusBadge(paymentAmount);
@@ -207,13 +227,30 @@ function updateCharts(paymentAmount, animate = true) {
   }
 }
 
+// Re-draw the visualization with whatever the participant currently has
+// selected. Called by the Research Control Panel after it changes a display
+// setting (chart type, timeline mode, etc.). Uses the same render pipeline as
+// normal interaction, so no calculation or logging behavior differs.
+window.rerenderStudyVisualization = function rerenderStudyVisualization() {
+  if (typeof window.applyStrategyConfig === 'function') window.applyStrategyConfig();
+  // Changing the chart type means the existing Chart.js instance may use a
+  // different structure (e.g. strategy 8 has dual axes). Destroy it so the
+  // pipeline rebuilds a fresh chart rather than mutating an incompatible one.
+  if (activeChart) { try { activeChart.destroy(); } catch (e) {} activeChart = null; }
+  if (_lastRenderMode === 'dynamic') {
+    renderDynamicMinimumTrajectory();
+  } else {
+    render(typeof _lastRenderPayment === 'number' ? _lastRenderPayment : MIN_PAYMENT);
+  }
+};
+
 // ─── Interactive Form Event Listeners ───────────────────────
 document.querySelectorAll('input[name="payOption"]').forEach(radio => {
   radio.addEventListener('change', () => {
     tracking.interactionCount++;
     if (!tracking.firstChoice) { tracking.firstChoice = radio.value; }
     tracking.finalChoice = radio.value;
-    
+
     if (radio.value === 'dynamic-min') {
       if (typeof ACTIVE_STRATEGY !== 'undefined' && (ACTIVE_STRATEGY === 6 || ACTIVE_STRATEGY === 7)) {
         renderDynamicMinimumTrajectory();
@@ -238,6 +275,8 @@ document.querySelectorAll('input[name="payOption"]').forEach(radio => {
 });
 
 function renderDynamicMinimumTrajectory() {
+  _lastRenderMode = 'dynamic';   // remember how the chart was last drawn (display state only)
+
   // Start from statement balance — same payoff target as computePayoffMetrics
   let balance = STATEMENT_BALANCE;
   let totalPaid = 0;
@@ -268,60 +307,96 @@ function renderDynamicMinimumTrajectory() {
   updateCharts(MIN_PAYMENT);
 }
 
+// Guards against double-logging the same value (e.g. a dwell-log followed by a
+// release at the same position) and holds the pending dwell timer.
+let _lastLoggedSliderValue = null;
+let _sliderDwellTimer      = null;
+
+// Records a slider value into the research log exactly once per meaningful stop.
+// Only the deliberate stops (release / dwell) reach this — not every drag tick.
+function commitSliderChoice(val) {
+  const rounded = Number(val.toFixed(2));
+  if (rounded === _lastLoggedSliderValue) return; // unchanged since last log
+  _lastLoggedSliderValue = rounded;
+  tracking.interactionCount++;
+  tracking.allChoices.push(rounded);
+  tracking.customAmount = rounded;
+}
+
 paymentRange.addEventListener('input', (e) => {
   const val = parseFloat(e.target.value);
-  
+
+  // First-touch timing: recorded the moment the participant engages the slider.
   if (!tracking.usedSlider) {
     tracking.usedSlider = true;
     tracking.firstSliderUseTime = Date.now() - tracking.startTime;
   }
-  
-  tracking.interactionCount++;
-  tracking.allChoices.push(Number(val.toFixed(2)));
-  
+
+  // Live UI sync (not logged data) — keep the custom radio selected and the
+  // number field mirroring the slider so the participant sees the current value.
   const customRadio = document.getElementById("radioOther");
   if (customRadio) {
     customRadio.checked = true;
     tracking.finalChoice = "other";
   }
-  
   paymentInput.value = val.toFixed(2);
-  tracking.customAmount = Number(val.toFixed(2));
 
+  // Live render (unchanged): chart + summary update smoothly during the drag.
   _animateNext = false;
   render(val);
+
+  if (SLIDER_COMMIT_LOGGING) {
+    // (b) Dwell logging: restart the timer on every tick; if the participant
+    // holds this value for SLIDER_LOG_DWELL_MS, log it as a deliberate stop.
+    if (_sliderDwellTimer) clearTimeout(_sliderDwellTimer);
+    _sliderDwellTimer = setTimeout(() => commitSliderChoice(val), SLIDER_LOG_DWELL_MS);
+  } else {
+    // Legacy behavior: log every input tick.
+    tracking.interactionCount++;
+    tracking.allChoices.push(Number(val.toFixed(2)));
+    tracking.customAmount = Number(val.toFixed(2));
+  }
+});
+
+// (a) Release logging: 'change' fires when the participant lets go of the slider
+// (mouse-up, touch-end, or keyboard commit). Cancel any pending dwell timer and
+// log the final resting value.
+paymentRange.addEventListener('change', (e) => {
+  if (!SLIDER_COMMIT_LOGGING) return; // legacy path already logged via 'input'
+  if (_sliderDwellTimer) { clearTimeout(_sliderDwellTimer); _sliderDwellTimer = null; }
+  commitSliderChoice(parseFloat(e.target.value));
 });
 
 paymentInput.addEventListener('input', (e) => {
   let val = parseFloat(e.target.value);
-  
+
   if (!tracking.usedCustomInput) {
     tracking.usedCustomInput = true;
     tracking.firstCustomInputTime = Date.now() - tracking.startTime;
   }
-  
+
   tracking.interactionCount++;
-  
+
   if (isNaN(val) || val < 0) {
     render(0);
     return;
   }
-  
+
   if (val > CURRENT_BALANCE) {
     val = CURRENT_BALANCE;
     paymentInput.value = CURRENT_BALANCE.toFixed(2);
   }
-  
+
   tracking.allChoices.push(Number(val.toFixed(2)));
   paymentRange.value = val;
   tracking.customAmount = Number(val.toFixed(2));
-  
+
   const customRadio = document.getElementById("radioOther");
   if (customRadio) {
     customRadio.checked = true;
     tracking.finalChoice = "other";
   }
-  
+
   render(val);
 });
 
@@ -408,7 +483,7 @@ document.getElementById("submitSessionBtn").addEventListener("click", () => {
 
 document.addEventListener("DOMContentLoaded", () => {
   applyVersionUI();
-  
+
   // Set up the dynamic payment target due date (25 days out from today)
   const targetDueDateEl = document.getElementById("dynamicDueDate");
   if (targetDueDateEl) {
@@ -417,22 +492,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const formattingOptions = { month: 'short', day: 'numeric', year: 'numeric' };
     targetDueDateEl.textContent = today.toLocaleDateString('en-US', formattingOptions);
   }
-  
+
   // 1. Determine which specific radio button exists based strictly on the ACTIVE_STRATEGY
   let targetRadioValue = "38.00"; // Default for Strategies 1-5
   if (typeof ACTIVE_STRATEGY !== 'undefined' && (ACTIVE_STRATEGY === 6 || ACTIVE_STRATEGY === 7)) {
     targetRadioValue = "dynamic-min"; // Default for Strategies 6-7
   }
-  
+
   // 2. Locate and check exactly ONE radio element matching that value
   const defaultRadio = document.querySelector(`input[name="payOption"][value="${targetRadioValue}"]`);
-  
+
   if (defaultRadio) {
     defaultRadio.checked = true;
     tracking.firstChoice = defaultRadio.value;
     tracking.finalChoice = defaultRadio.value;
   }
-  
+
   // 3. Execute the exact matching rendering pipeline to kick off the application state
   if (targetRadioValue === "dynamic-min") {
     renderDynamicMinimumTrajectory();

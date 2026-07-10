@@ -31,7 +31,7 @@
       </div>
     </div>
   </div>
-  
+
   <div class="page-body">
     <div class="wrap">
 
@@ -40,12 +40,12 @@
           <span class="acct-label">Account</span>
           <strong class="acct-value">Visa Signature (•••• 5432)</strong>
         </div>
-        
+
         <div class="account-item highlight">
           <span class="acct-label">Payment Due Date</span>
           <strong id="dynamicDueDate" class="acct-value">Calculating...</strong>
         </div>
-        
+
         <div class="status-badge-container">
           <span id="accountStatusBadge" class="status-badge">Payment Required</span>
         </div>
@@ -57,7 +57,7 @@
           <div class="section-card">
             <fieldset class="options-fieldset">
               <legend class="options-legend">Select your monthly payment option</legend>
-              
+
               <label class="option-row">
                 <input type="radio" name="payOption" value="dynamic-min">
                 <div class="option-content">
@@ -106,7 +106,7 @@
               <input id="paymentRange" type="range" min="0.00" max="1836.90" step="0.01" value="38" />
             </div>
             <div class="scenario-callout">
-              If you pay <strong>$<span id="descPayment">—</span></strong> per month, you will pay off your statement balance in <strong><span id="descYears">—</span></strong>. During this time, you will accumulate <strong>$<span id="descAccruedInterest">0.00</span></strong> in interest charges, bringing your total payment to <strong>$<span id="descTotal">—</span></strong>.
+            <P></P>Paying <strong>$<span id="descPayment">—</span></strong>/mo clears your balance in <strong><span id="descYears">—</span></strong>. Total interest: <strong>$<span id="descAccruedInterest">0.00</span></strong> (Total paid: <strong>$<span id="descTotal">—</span></strong>).
             </div>
           </section>
         </section>
@@ -134,7 +134,7 @@
                 <h3 class="chart-title">Visualizing Lifetime Payment Impact
                   <span id="chartPayoffBadge" style="margin-left: 8px; color: var(--primary); font-weight: 700; text-transform: none; letter-spacing: normal;"></span>
                 </h3>
-                
+
                 <div id="chartTimeTabs" class="chart-tabs-container" style="display: none;">
                   <button class="time-tab active" data-months="12">First 12 Months</button>
                   <button class="time-tab" data-months="36">3 Years (36 Mo)</button>
@@ -143,7 +143,7 @@
 
                 <div class="canvas-holder">
                   <canvas id="stackedChart"></canvas>
-                  
+
                   <div id="chartInfiniteOverlay">
                     <div style="font-size: 3.5rem; color: #9B3232; line-height: 1; margin-bottom: 8px;">&infin;</div>
                     <h4 style="font-size: 1rem; font-weight: 700; color: #1C3A2A; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em;">Balance Cannot Be Paid Off</h4>
@@ -163,7 +163,7 @@
       <section class="submit-section">
         <div class="submit-card">
           <div class="submit-text">
-            <strong>Ready to submit?</strong> Once you click below, your payment will be transfered out of your account. This action cannot be undone.
+            <strong>Ready to submit?</strong> Once you click below, your payment will be transfered out of your account.
           </div>
           <button id="submitSessionBtn" class="btn-submit">Authorize Payment &amp; Advance Session &rarr;</button>
         </div>
@@ -179,8 +179,9 @@
       <span>Boston College</span>
     </div>
   </footer>
-
+  <script src="config.js"></script>
   <script src="visualizations.js"></script>
   <script src="script.js"></script>
+  <script src="research-panel.js"></script>
 </body>
 </html>
