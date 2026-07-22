@@ -898,3 +898,118 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
     });
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  FINALIZED-SURVEY COMPARISON GRAPH  (layouts 6 & 7)
+ *  A bar chart comparing three payment strategies — Minimum, the participant's
+ *  slider "Your Choice", and Pay in Full — for one metric at a time. The metric
+ *  is chosen by the tabs above the graph:
+ *      layout 6 → total, payoff time
+ *      layout 7 → principal, interest, total, payoff time
+ *  It is driven only by the slider (decoupled from the choice radios) and never
+ *  enters an infinite state (the slider is clamped above the un-payable point).
+ * ═══════════════════════════════════════════════════════════════════════════ */
+window.renderLayoutGraph = function renderLayoutGraph(ctx, payment, currentBalance, statementBalance, monthlyRate, metric, existingChart) {
+  if (!ctx) return existingChart || null;
+
+  function lifetime(payAmount) {
+    let bal = statementBalance, interest = 0, principal = 0, m = 0;
+    while (bal > 0 && m < 1200) {
+      m++;
+      const int  = payAmount >= statementBalance ? 0 : bal * monthlyRate;
+      const prin = Math.min(payAmount - int, bal);
+      bal       -= prin;
+      interest  += int;
+      principal += prin;
+    }
+    return { interest, principal, months: m, total: interest + principal };
+  }
+
+  const minF    = lifetime(38.00);
+  const youF    = lifetime(payment);
+  const fullF   = lifetime(statementBalance);
+
+  const labels = ["Minimum ($38/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay in Full ($1,836.90)"];
+  const colors = [COLOR_MIN_PATH, COLOR_CUSTOM, COLOR_TOTAL];
+
+  const METRICS = {
+    total:     { pick: f => f.total,     axis: "Total Amount Paid ($)", isMoney: true,  name: "Total Paid" },
+    principal: { pick: f => f.principal, axis: "Principal Paid ($)",    isMoney: true,  name: "Principal" },
+    interest:  { pick: f => f.interest,  axis: "Interest Paid ($)",     isMoney: true,  name: "Interest" },
+    time:      { pick: f => f.months,    axis: "Months to Pay Off",     isMoney: false, name: "Months to Pay Off" }
+  };
+  const spec = METRICS[metric] || METRICS.total;
+  const data = [spec.pick(minF), spec.pick(youF), spec.pick(fullF)];
+  const yMax = computeDynamicYMax(data);
+
+  // Payoff badge → the participant's current slider choice.
+  const badge = document.getElementById("chartPayoffBadge");
+  if (badge) {
+    badge.style.color = "var(--primary)";
+    badge.innerText = youF.months <= 1
+      ? "— Your choice pays off immediately"
+      : `— Your choice pays off in ${youF.months} months`;
+  }
+
+  const tickFmt = spec.isMoney
+    ? (v => "$" + v.toLocaleString())
+    : (v => v + " mo");
+
+  // Update in place when the metric (and thus axis format) is unchanged;
+  // otherwise rebuild so axis titles / tick formatting refresh cleanly.
+  if (existingChart && !existingChart._destroying &&
+      existingChart.config.type === "bar" && existingChart._metric === metric) {
+    existingChart.data.labels = labels;
+    existingChart.data.datasets[0].data = data;
+    existingChart.data.datasets[0].backgroundColor = colors;
+    existingChart.options.scales.y.max = yMax;
+    existingChart.options.animation = { duration: 0 };
+    existingChart.update('none');
+    if (_animateNext && ctx.canvas) {
+      ctx.canvas.classList.remove('chart-fade-in');
+      void ctx.canvas.offsetWidth;
+      ctx.canvas.classList.add('chart-fade-in');
+    }
+    return existingChart;
+  }
+
+  if (existingChart) { try { existingChart.destroy(); } catch (e) {} }
+
+  const chart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{ label: spec.name, data, backgroundColor: colors }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 0 },
+      scales: {
+        x: { title: { display: true, text: "Payment Strategy", color: "var(--text-secondary)", font: { weight: 600 } } },
+        y: {
+          min: 0, max: yMax,
+          title: { display: true, text: spec.axis, color: "var(--text-secondary)", font: { weight: 600 } },
+          ticks: { callback: tickFmt }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          padding: 12, backgroundColor: "rgba(28,58,42,0.95)",
+          callbacks: {
+            title: c => c[0].label,
+            label: c => spec.isMoney ? ` ${spec.name}: $${c.parsed.y.toFixed(2)}` : ` ${spec.name}: ${c.parsed.y}`
+          }
+        }
+      }
+    }
+  });
+  chart._metric = metric;
+  if (_animateNext && ctx.canvas) {
+    ctx.canvas.classList.remove('chart-fade-in');
+    void ctx.canvas.offsetWidth;
+    ctx.canvas.classList.add('chart-fade-in');
+  }
+  return chart;
+};

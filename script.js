@@ -1,33 +1,22 @@
-// ─── Study Version Control ──────────────────────────────────
+// ─── Study Layout Control (replaces the old ?v= version system) ─────────────
+// The active layout (1–7) is resolved centrally in config.js from ?layout= or
+// the Research Control Panel. Section visibility is driven entirely by the body
+// classes config.js applies (feat-slider / feat-graph / feat-choice-msgs …) via
+// styles.css, so this file no longer force-toggles inline display.
 const urlParams = new URLSearchParams(window.location.search);
-const version = urlParams.get('v') !== null ? parseInt(urlParams.get('v'), 10) : 2;
-
-console.log("Current detected study condition version:", version);
-
-function applyVersionUI() {
-  const sliderSection = document.getElementById("sliderSection");
-  const chartSection  = document.getElementById("chartSection");
-  const radioOther    = document.querySelector('.option-row--other');
-
-  if (version === 0) {
-    console.log("Applying Version 0: Hiding Slider, Chart, and Custom Input");
-    if (sliderSection) sliderSection.style.setProperty('display', 'none', 'important');
-    if (chartSection)  chartSection.style.setProperty('display', 'none', 'important');
-    if (radioOther)    radioOther.style.setProperty('display', 'none', 'important');
-  }
-  else if (version === 1) {
-    console.log("Applying Version 1: Hiding Chart Only");
-    if (chartSection)  chartSection.style.setProperty('display', 'none', 'important');
-    if (sliderSection) sliderSection.style.removeProperty('display');
-    if (radioOther)    radioOther.style.removeProperty('display');
-  }
-  else {
-    console.log("Applying Version 2: Showing Entire Interface");
-    if (sliderSection) sliderSection.style.removeProperty('display');
-    if (chartSection)  chartSection.style.removeProperty('display');
-    if (radioOther)    radioOther.style.removeProperty('display');
-  }
+function getLayout() {
+  return (typeof window.getActiveLayout === 'function') ? window.getActiveLayout() : 1;
 }
+function layoutSpec() {
+  return (typeof window.getLayoutSpec === 'function') ? window.getLayoutSpec() : { graphTabs: [] };
+}
+const version = getLayout(); // retained name for downstream research-data fields
+
+console.log("Current detected study layout:", version);
+
+// Visibility is handled by CSS body classes (config.js). Kept as a no-op so any
+// legacy callers remain safe.
+function applyVersionUI() { /* layout visibility handled via CSS classes */ }
 
 // ─── Constants & Parameters ─────────────────────────────────
 const CURRENT_BALANCE = 1875.11;
@@ -35,6 +24,18 @@ const STATEMENT_BALANCE = 1836.90;
 const ANNUAL_RATE     = 0.2299; // 22.99%
 const MONTHLY_RATE    = ANNUAL_RATE / 12;
 const MIN_PAYMENT     = 38.00;
+
+// Smallest whole-cent monthly payment that still eventually clears the statement
+// balance. At or below the pure-interest point (statement × monthly rate) the
+// balance never pays off, so the slider is clamped one cent above it.
+const INFINITE_POINT    = STATEMENT_BALANCE * MONTHLY_RATE;          // ≈ 35.19
+let   MIN_SLIDER_VALUE  = Math.ceil(INFINITE_POINT * 100) / 100;      // ≈ 35.20
+if (MIN_SLIDER_VALUE <= INFINITE_POINT) MIN_SLIDER_VALUE += 0.01;    // guard exact-cent case
+
+// Money formatter with thousands separators, e.g. 1836.9 → "$1,836.90".
+function fmt(n) {
+  return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 // ─── Slider Logging Behavior ────────────────────────────────
 // The range slider fires 'input' continuously while dragging, which previously
@@ -60,6 +61,7 @@ const tracking = {
   firstChoice: null,
   finalChoice: null,
   allChoices: [],
+  sliderValues: [],
   customAmount: null,
   usedSlider: false,
   usedCustomInput: false,
@@ -155,6 +157,82 @@ function formatDurationLong(totalMonths) {
   return (result || "less than a month") + ` (${totalMonths} months)`;
 }
 
+// ─── Message Builders (layouts 2–7) ─────────────────────────
+// `detail` is "total" (cost + payoff time) or "breakdown" (+ interest & principal).
+// All wording matches the finalized survey copy; every number is computed from
+// the constants and payoff engine above (no hard-coded figures).
+
+function msgStatementText(detail) {
+  return detail === "breakdown"
+    ? `If you pay this amount, you will pay off the statement balance this month with $0 interest and ${fmt(STATEMENT_BALANCE)} principal.`
+    : `If you pay this amount, you will pay off the statement balance this month with a total of ${fmt(STATEMENT_BALANCE)}.`;
+}
+
+function msgCurrentText(detail) {
+  return detail === "breakdown"
+    ? `If you pay this amount, you will pay off the current balance this month with $0 interest and ${fmt(CURRENT_BALANCE)} principal.`
+    : `If you pay this amount, you will pay off the current balance this month with a total of ${fmt(CURRENT_BALANCE)}.`;
+}
+
+function msgMinimumText(detail) {
+  const m = computePayoffMetrics(MIN_PAYMENT);
+  const principal = m.totalPaid - m.totalInterest;
+  const time = formatDurationLong(m.months);
+  const lead = "If you make no additional charges using this card and each month you pay only the minimum required amount, you will pay off the statement balance in " + time;
+  return detail === "breakdown"
+    ? `${lead}, and you will end up paying ${fmt(m.totalInterest)} interest and ${fmt(principal)} principal, a total of ${fmt(m.totalPaid)}.`
+    : `${lead}, and you will end up paying a total of ${fmt(m.totalPaid)}.`;
+}
+
+// A monthly payment of `v` (the custom "Other Amount" field, or the slider).
+// `estimated` softens the total wording ("an estimated total of") for typed/slid values.
+function msgAmountText(v, detail, estimated) {
+  if (!isFinite(v) || v <= 0) return "";
+
+  if (v >= STATEMENT_BALANCE) {
+    return detail === "breakdown"
+      ? `If you pay this amount, you will pay off the statement balance this month with $0 interest and ${fmt(STATEMENT_BALANCE)} principal.`
+      : `If you pay this amount, you will pay off the statement balance this month with a total of ${fmt(STATEMENT_BALANCE)}.`;
+  }
+
+  const m = computePayoffMetrics(v);
+  if (!isFinite(m.months)) {
+    return "This amount does not cover the monthly interest, so the balance would never be fully paid off.";
+  }
+
+  const principal   = m.totalPaid - m.totalInterest;
+  const time        = formatDurationLong(m.months);
+  const totalPhrase = estimated ? "an estimated total of" : "a total of";
+  const lead = "If you make no additional charges using this card and each month you pay this amount, you will pay off the statement balance in " + time;
+  return detail === "breakdown"
+    ? `${lead}, and you will end up paying ${fmt(m.totalInterest)} interest and ${fmt(principal)} principal, with ${totalPhrase} ${fmt(m.totalPaid)}.`
+    : `${lead}, and you will end up paying ${totalPhrase} ${fmt(m.totalPaid)}.`;
+}
+
+// Fill the three fixed per-option messages (Statement / Current / Minimum).
+// Runs on init and whenever the layout changes. Other Amount is filled on input.
+function initChoiceMessages() {
+  const spec   = layoutSpec();
+  const detail = spec.choiceDetail;      // "total" | "breakdown" | null
+  const s = document.getElementById("msgStatement");
+  const c = document.getElementById("msgCurrent");
+  const m = document.getElementById("msgMinimum");
+  if (s) s.textContent = detail ? "• " + msgStatementText(detail) : "";
+  if (c) c.textContent = detail ? "• " + msgCurrentText(detail)   : "";
+  if (m) m.textContent = detail ? "• " + msgMinimumText(detail)   : "";
+  // Refresh the Other Amount message to the current field value (if any).
+  updateOtherMessage(parseFloat(paymentInput ? paymentInput.value : NaN));
+}
+
+// Live message under the Other Amount field (layouts 2 & 3 only).
+function updateOtherMessage(v) {
+  const el = document.getElementById("msgOther");
+  if (!el) return;
+  const spec = layoutSpec();
+  if (!spec.choiceMsgs || !isFinite(v) || v <= 0) { el.textContent = ""; return; }
+  el.textContent = "• " + msgAmountText(v, spec.choiceDetail, true);
+}
+
 // ─── UI Application Render Pipelines ────────────────────────
 function updateStatusBadge(paymentAmount) {
   const badge = document.getElementById("accountStatusBadge");
@@ -171,250 +249,275 @@ function updateStatusBadge(paymentAmount) {
   }
 }
 
-function render(paymentAmount) {
-  _lastRenderMode = 'fixed';            // remember how the chart was last drawn
-  _lastRenderPayment = paymentAmount;   // (display state only — see note above)
-  if (typeof _animateNext !== 'undefined') _animateNext = true; // radio/init always animate
-  const metrics = computePayoffMetrics(paymentAmount);
-  const isInfinite = !isFinite(metrics.totalPaid);
-
-  // ── Three summary cards ──────────────────────────────────
-  yearsOut.textContent = isInfinite ? "Never" : formatDurationText(metrics.months);
-  if (interestOut) interestOut.textContent = isInfinite ? "Infinite" : `$${metrics.totalInterest.toFixed(2)}`;
-  totalOut.textContent = isInfinite ? "Infinite" : `$${metrics.totalPaid.toFixed(2)}`;
-
-  // ── Slider callout sentence ──────────────────────────────
-  descPayment.textContent = paymentAmount.toFixed(2);
-  descYears.textContent   = isInfinite ? "an infinite horizon" : formatDurationLong(metrics.months);
-  if (descAccruedInterest) descAccruedInterest.textContent = isInfinite ? "Infinite" : `${metrics.totalInterest.toFixed(2)}`;
-  descTotal.textContent   = isInfinite ? "Infinite" : metrics.totalPaid.toFixed(2);
-
-  updateStatusBadge(paymentAmount);
-  updateCharts(paymentAmount);
+// CSS left offset that tracks the slider thumb centre. The thumb is ~20px wide,
+// so its centre travels from 10px to (width−10px); this maps a 0→1 fraction onto
+// that inset range so bubbles/notches line up with the thumb.
+const SLIDER_THUMB = 20;
+function thumbLeft(v) {
+  const pct = Math.max(0, Math.min(1, v / CURRENT_BALANCE));
+  return `calc(${(pct * 100).toFixed(3)}% - ${((pct - 0.5) * SLIDER_THUMB).toFixed(2)}px)`;
 }
 
+// Position the floating value bubble above the slider thumb, nudging it inward
+// near the track edges so it never overflows the slider.
+function positionSliderBubble(v) {
+  const bubble = document.getElementById("sliderBubble");
+  if (!bubble || !paymentRange) return;
+  bubble.textContent = fmt(v);
+  bubble.style.left = thumbLeft(v);
+  const pct = Math.max(0, Math.min(1, v / CURRENT_BALANCE));
+  if (pct > 0.9)      bubble.style.transform = "translateX(calc(-100% + 14px))";
+  else if (pct < 0.1) bubble.style.transform = "translateX(-14px)";
+  else                bubble.style.transform = "translateX(-50%)";
+}
+
+// Place the minimum-payment and statement-balance notches on the 0→current
+// scale. The tick sits exactly on the value; the label is nudged inward near the
+// track edges so it never overflows the slider.
+function positionNotches() {
+  const place = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.left = thumbLeft(val);
+    const pct = Math.max(0, Math.min(1, val / CURRENT_BALANCE));
+    const label = el.querySelector(".notch-label");
+    if (label) {
+      if (pct > 0.82)      label.style.transform = "translateX(calc(-100% + 8px))";
+      else if (pct < 0.18) label.style.transform = "translateX(-8px)";
+      else                 label.style.transform = "translateX(-50%)";
+    }
+  };
+  place("notchMin", MIN_PAYMENT);
+  place("notchStatement", STATEMENT_BALANCE);
+}
+
+// Jump the slider to a value (used by the clickable notches). Behaves like a
+// deliberate slider stop: renders visuals and logs the choice, but — like the
+// slider itself — stays unlinked from the radio selection.
+function setSliderValue(v) {
+  if (!paymentRange) return;
+  let val = v;
+  if (val < MIN_SLIDER_VALUE) val = MIN_SLIDER_VALUE;
+  if (val > CURRENT_BALANCE)  val = CURRENT_BALANCE;
+  paymentRange.value = String(val);
+  const infMsg = document.getElementById("sliderInfiniteMsg");
+  if (infMsg) infMsg.classList.remove("show");
+  if (!tracking.usedSlider) {
+    tracking.usedSlider = true;
+    tracking.firstSliderUseTime = Date.now() - tracking.startTime;
+  }
+  _animateNext = true;
+  renderSlider(val);
+  commitSliderChoice(val);
+}
+
+// Update the summary "tab" cards above the graph (Principal / Interest / Total /
+// Time to Pay Off). CSS decides which are visible per layout (L6: total+time,
+// L7: all four). Values reflect the current slider payment.
+function updateCards(v) {
+  const m = computePayoffMetrics(v);
+  const inf = !isFinite(m.totalPaid);
+  const principal = inf ? Infinity : (m.totalPaid - m.totalInterest);
+  const p = document.getElementById("principalOut");
+  if (p)           p.textContent           = inf ? "Infinite" : fmt(principal);
+  if (interestOut) interestOut.textContent = inf ? "Infinite" : fmt(m.totalInterest);
+  if (totalOut)    totalOut.textContent    = inf ? "Infinite" : fmt(m.totalPaid);
+  if (yearsOut)    yearsOut.textContent    = inf ? "Never"    : formatDurationText(m.months);
+}
+
+// Master slider renderer (layouts 4–7). VISUAL ONLY: updates the bubble, the
+// slider message (L4/L5), the summary cards, and the graph (L6/L7). It never
+// touches the radio selection or the Other Amount field — the slider and graph
+// are decoupled from the participant's actual choice.
+function renderSlider(v) {
+  _lastRenderPayment = v;
+  positionSliderBubble(v);
+
+  const msgEl = document.getElementById("sliderMessageText");
+  if (msgEl) msgEl.textContent = msgAmountText(v, layoutSpec().sliderDetail, false);
+
+  updateStatusBadge(v);
+  updateCards(v);
+
+  if (layoutSpec().graph) updateCharts(v);
+}
+
+// Draw the graph via visualizations.js using the researcher-selected chart type
+// (ACTIVE_STRATEGY). Kept swappable from the Research Control Panel — changing
+// "Chart type" there redraws with the current slider value. Mirrors the original
+// pipeline so all 9 chart strategies remain available.
 function updateCharts(paymentAmount, animate = true) {
   if (!chartCtx) return;
-
-  // Tell visualizations.js whether to animate (shared global, declared there)
   if (typeof _animateNext !== 'undefined') _animateNext = animate;
+  if (typeof renderStudyChart !== 'function') return;
 
-  if (typeof renderStudyChart === 'function') {
-    const result = renderStudyChart(
-      chartCtx,
-      paymentAmount,
-      CURRENT_BALANCE,
-      STATEMENT_BALANCE,
-      MONTHLY_RATE,
-      computePayoffMetrics,
-      () => { updateCharts(paymentAmount, true); },
-      activeChart  // pass existing chart for in-place update
-    );
+  const result = renderStudyChart(
+    chartCtx, paymentAmount, CURRENT_BALANCE, STATEMENT_BALANCE, MONTHLY_RATE,
+    computePayoffMetrics, () => { updateCharts(paymentAmount, true); }, activeChart
+  );
 
-    // Only replace activeChart reference if a new instance was returned
-    // (result is null on infinite overlay, or a chart instance)
-    if (result !== activeChart) {
-      if (activeChart && result === null) {
-        // Infinite state — destroy since overlay takes over
-        activeChart.destroy();
-        activeChart = null;
-      } else if (result !== null) {
-        // Fresh chart was created (first load or type change)
-        if (activeChart) activeChart.destroy();
-        activeChart = result;
-      }
-    }
+  if (result !== activeChart) {
+    if (activeChart && result === null) { activeChart.destroy(); activeChart = null; }
+    else if (result !== null) { if (activeChart) activeChart.destroy(); activeChart = result; }
   }
 }
 
-// Re-draw the visualization with whatever the participant currently has
-// selected. Called by the Research Control Panel after it changes a display
-// setting (chart type, timeline mode, etc.). Uses the same render pipeline as
-// normal interaction, so no calculation or logging behavior differs.
+// Apply everything that depends on the active layout at runtime: fixed choice
+// messages, notch positions, and an initial slider/card/graph render.
+// Safe to call repeatedly (init + Research Control Panel changes).
+function applyLayoutRuntime() {
+  initChoiceMessages();
+  positionNotches();
+  if (layoutSpec().slider) {
+    let v = paymentRange ? parseFloat(paymentRange.value) : MIN_PAYMENT;
+    if (!isFinite(v)) v = MIN_PAYMENT;
+    if (v < MIN_SLIDER_VALUE) { v = MIN_SLIDER_VALUE; if (paymentRange) paymentRange.value = String(v); }
+    _animateNext = true;
+    renderSlider(v);
+  }
+}
+
+// Re-apply after the Research Control Panel changes a setting (layout OR chart
+// type). Refresh ACTIVE_STRATEGY from CONFIG, drop the old chart, then redraw.
 window.rerenderStudyVisualization = function rerenderStudyVisualization() {
   if (typeof window.applyStrategyConfig === 'function') window.applyStrategyConfig();
-  // Changing the chart type means the existing Chart.js instance may use a
-  // different structure (e.g. strategy 8 has dual axes). Destroy it so the
-  // pipeline rebuilds a fresh chart rather than mutating an incompatible one.
   if (activeChart) { try { activeChart.destroy(); } catch (e) {} activeChart = null; }
-  if (_lastRenderMode === 'dynamic') {
-    renderDynamicMinimumTrajectory();
-  } else {
-    render(typeof _lastRenderPayment === 'number' ? _lastRenderPayment : MIN_PAYMENT);
-  }
+  applyLayoutRuntime();
 };
 
 // ─── Interactive Form Event Listeners ───────────────────────
+// Selecting a radio records the participant's choice. It does NOT drive the
+// slider or graph (those are independent visuals).
 document.querySelectorAll('input[name="payOption"]').forEach(radio => {
   radio.addEventListener('change', () => {
     tracking.interactionCount++;
     if (!tracking.firstChoice) { tracking.firstChoice = radio.value; }
     tracking.finalChoice = radio.value;
 
-    if (radio.value === 'dynamic-min') {
-      if (typeof ACTIVE_STRATEGY !== 'undefined' && (ACTIVE_STRATEGY === 6 || ACTIVE_STRATEGY === 7)) {
-        renderDynamicMinimumTrajectory();
-      } else {
-        paymentRange.value = "38.00";
-        tracking.allChoices.push(38.00);
-        render(38.00);
+    if (radio.value === 'other') {
+      const val = parseFloat(paymentInput.value);
+      if (isFinite(val)) {
+        tracking.customAmount = Number(val.toFixed(2));
+        tracking.allChoices.push(Number(val.toFixed(2)));
       }
-    } else if (radio.value === 'other') {
-      const val = +paymentInput.value;
-      if (isNaN(val)) return;
-      paymentRange.value = val;
-      tracking.allChoices.push(Number(val.toFixed(2)));
-      render(val);
     } else {
-      const val = +radio.value;
-      paymentRange.value = val;
-      tracking.allChoices.push(Number(val.toFixed(2)));
-      render(val);
+      tracking.allChoices.push(Number((+radio.value).toFixed(2)));
     }
   });
 });
-
-function renderDynamicMinimumTrajectory() {
-  _lastRenderMode = 'dynamic';   // remember how the chart was last drawn (display state only)
-
-  // Start from statement balance — same payoff target as computePayoffMetrics
-  let balance = STATEMENT_BALANCE;
-  let totalPaid = 0;
-  let totalInterest = 0;
-  let months = 0;
-
-  while (balance > 0 && months < 1200) {
-    months++;
-    const interest = balance * MONTHLY_RATE;
-    const newBalance = balance + interest;
-    const effectivePayment = Math.max(20.00, newBalance * 0.02);
-    const principal = Math.min(effectivePayment - interest, balance);
-
-    balance       -= principal;
-    totalInterest += interest;
-    totalPaid     += (interest + principal);
-  }
-
-  yearsOut.textContent = formatDurationText(months);
-  if (interestOut) interestOut.textContent = `$${totalInterest.toFixed(2)}`;
-  totalOut.textContent = `$${totalPaid.toFixed(2)}`;
-  descPayment.textContent = "Dynamic Minimum (Monthly Recalculating)";
-  descYears.textContent   = formatDurationLong(months);
-  if (descAccruedInterest) descAccruedInterest.textContent = totalInterest.toFixed(2);
-  descTotal.textContent   = totalPaid.toFixed(2);
-
-  updateStatusBadge(MIN_PAYMENT);
-  updateCharts(MIN_PAYMENT);
-}
 
 // Guards against double-logging the same value (e.g. a dwell-log followed by a
 // release at the same position) and holds the pending dwell timer.
 let _lastLoggedSliderValue = null;
 let _sliderDwellTimer      = null;
 
-// Records a slider value into the research log exactly once per meaningful stop.
-// Only the deliberate stops (release / dwell) reach this — not every drag tick.
+// Records a slider stop into the research log (release / dwell). The slider is a
+// visual explorer, so its values are logged for research but are kept SEPARATE
+// from the submitted choice — it does not set tracking.customAmount.
 function commitSliderChoice(val) {
   const rounded = Number(val.toFixed(2));
   if (rounded === _lastLoggedSliderValue) return; // unchanged since last log
   _lastLoggedSliderValue = rounded;
   tracking.interactionCount++;
   tracking.allChoices.push(rounded);
-  tracking.customAmount = rounded;
+  if (Array.isArray(tracking.sliderValues)) tracking.sliderValues.push(rounded);
 }
 
-paymentRange.addEventListener('input', (e) => {
-  const val = parseFloat(e.target.value);
+if (paymentRange) {
+  paymentRange.addEventListener('input', (e) => {
+    let val = parseFloat(e.target.value);
 
-  // First-touch timing: recorded the moment the participant engages the slider.
-  if (!tracking.usedSlider) {
-    tracking.usedSlider = true;
-    tracking.firstSliderUseTime = Date.now() - tracking.startTime;
-  }
+    // Clamp: the slider visually spans to $0 but cannot be moved below the
+    // point where the balance becomes un-payable. At the floor, warn the user.
+    const infMsg = document.getElementById("sliderInfiniteMsg");
+    if (val < MIN_SLIDER_VALUE) {
+      val = MIN_SLIDER_VALUE;
+      paymentRange.value = String(MIN_SLIDER_VALUE);
+      if (infMsg) infMsg.classList.add("show");
+    } else if (infMsg) {
+      infMsg.classList.remove("show");
+    }
 
-  // Live UI sync (not logged data) — keep the custom radio selected and the
-  // number field mirroring the slider so the participant sees the current value.
-  const customRadio = document.getElementById("radioOther");
-  if (customRadio) {
-    customRadio.checked = true;
-    tracking.finalChoice = "other";
-  }
-  paymentInput.value = val.toFixed(2);
+    // First-touch timing.
+    if (!tracking.usedSlider) {
+      tracking.usedSlider = true;
+      tracking.firstSliderUseTime = Date.now() - tracking.startTime;
+    }
 
-  // Live render (unchanged): chart + summary update smoothly during the drag.
-  _animateNext = false;
-  render(val);
+    // Visual-only render (bubble + message + graph). Choices untouched.
+    _animateNext = false;
+    renderSlider(val);
 
-  if (SLIDER_COMMIT_LOGGING) {
-    // (b) Dwell logging: restart the timer on every tick; if the participant
-    // holds this value for SLIDER_LOG_DWELL_MS, log it as a deliberate stop.
-    if (_sliderDwellTimer) clearTimeout(_sliderDwellTimer);
-    _sliderDwellTimer = setTimeout(() => commitSliderChoice(val), SLIDER_LOG_DWELL_MS);
-  } else {
-    // Legacy behavior: log every input tick.
+    if (SLIDER_COMMIT_LOGGING) {
+      if (_sliderDwellTimer) clearTimeout(_sliderDwellTimer);
+      _sliderDwellTimer = setTimeout(() => commitSliderChoice(val), SLIDER_LOG_DWELL_MS);
+    } else {
+      tracking.interactionCount++;
+      tracking.allChoices.push(Number(val.toFixed(2)));
+      if (Array.isArray(tracking.sliderValues)) tracking.sliderValues.push(Number(val.toFixed(2)));
+    }
+  });
+
+  paymentRange.addEventListener('change', (e) => {
+    if (!SLIDER_COMMIT_LOGGING) return;
+    if (_sliderDwellTimer) { clearTimeout(_sliderDwellTimer); _sliderDwellTimer = null; }
+    let val = parseFloat(e.target.value);
+    if (val < MIN_SLIDER_VALUE) val = MIN_SLIDER_VALUE;
+    commitSliderChoice(val);
+  });
+
+  // Clickable notches: jump the slider straight to the minimum or statement
+  // balance without needing to drag precisely.
+  const notchMinEl  = document.getElementById("notchMin");
+  const notchStmtEl = document.getElementById("notchStatement");
+  if (notchMinEl)  notchMinEl.addEventListener("click",  () => setSliderValue(MIN_PAYMENT));
+  if (notchStmtEl) notchStmtEl.addEventListener("click", () => setSliderValue(STATEMENT_BALANCE));
+}
+
+// Other Amount field: records the custom choice and updates its message (layouts
+// 2 & 3). Selecting this field checks the Other radio, but does NOT move the slider.
+if (paymentInput) {
+  paymentInput.addEventListener('input', (e) => {
+    let val = parseFloat(e.target.value);
+
+    if (!tracking.usedCustomInput) {
+      tracking.usedCustomInput = true;
+      tracking.firstCustomInputTime = Date.now() - tracking.startTime;
+    }
     tracking.interactionCount++;
+
+    const customRadio = document.getElementById("radioOther");
+    if (customRadio) {
+      customRadio.checked = true;
+      if (!tracking.firstChoice) tracking.firstChoice = "other";
+      tracking.finalChoice = "other";
+    }
+
+    if (isNaN(val) || val < 0) { updateOtherMessage(NaN); return; }
+    if (val > CURRENT_BALANCE) {
+      val = CURRENT_BALANCE;
+      paymentInput.value = CURRENT_BALANCE.toFixed(2);
+    }
+
     tracking.allChoices.push(Number(val.toFixed(2)));
     tracking.customAmount = Number(val.toFixed(2));
-  }
-});
+    updateOtherMessage(val);
+  });
 
-// (a) Release logging: 'change' fires when the participant lets go of the slider
-// (mouse-up, touch-end, or keyboard commit). Cancel any pending dwell timer and
-// log the final resting value.
-paymentRange.addEventListener('change', (e) => {
-  if (!SLIDER_COMMIT_LOGGING) return; // legacy path already logged via 'input'
-  if (_sliderDwellTimer) { clearTimeout(_sliderDwellTimer); _sliderDwellTimer = null; }
-  commitSliderChoice(parseFloat(e.target.value));
-});
-
-paymentInput.addEventListener('input', (e) => {
-  let val = parseFloat(e.target.value);
-
-  if (!tracking.usedCustomInput) {
-    tracking.usedCustomInput = true;
-    tracking.firstCustomInputTime = Date.now() - tracking.startTime;
-  }
-
-  tracking.interactionCount++;
-
-  if (isNaN(val) || val < 0) {
-    render(0);
-    return;
-  }
-
-  if (val > CURRENT_BALANCE) {
-    val = CURRENT_BALANCE;
-    paymentInput.value = CURRENT_BALANCE.toFixed(2);
-  }
-
-  tracking.allChoices.push(Number(val.toFixed(2)));
-  paymentRange.value = val;
-  tracking.customAmount = Number(val.toFixed(2));
-
-  const customRadio = document.getElementById("radioOther");
-  if (customRadio) {
-    customRadio.checked = true;
-    tracking.finalChoice = "other";
-  }
-
-  render(val);
-});
-
-paymentInput.addEventListener('blur', (e) => {
-  let val = parseFloat(e.target.value);
-  if (isNaN(val) || val < 0) {
-    paymentInput.value = "0.00";
-    paymentRange.value = 0;
-    render(0);
-  }
-});
+  paymentInput.addEventListener('blur', () => {
+    const val = parseFloat(paymentInput.value);
+    if (!isNaN(val) && val >= 0) paymentInput.value = val.toFixed(2);
+    updateOtherMessage(parseFloat(paymentInput.value));
+  });
+}
 
 // ─── Data Extraction & PostMessage Core Logic ───────────────
 function resolvePaymentLabel(choiceValue) {
   if (choiceValue === 'dynamic-min') return 'Minimum Payment (Recalculated Monthly)';
+  if (choiceValue === '38.00')      return 'Minimum Payment ($38.00)';
   if (choiceValue === '1836.90')    return 'Statement Balance ($1,836.90)';
-  if (choiceValue === '1875.11')    return 'Current Balance in Full ($1,875.11)';
-  if (choiceValue === 'other')      return `Custom Amount ($${tracking.customAmount !== null ? tracking.customAmount.toFixed(2) : '?'})`;
+  if (choiceValue === '1875.11')    return 'Current Balance ($1,875.11)';
+  if (choiceValue === 'other')      return `Other Amount ($${tracking.customAmount !== null ? tracking.customAmount.toFixed(2) : '?'})`;
   return choiceValue ?? null;
 }
 
@@ -424,6 +527,7 @@ function getSessionData() {
 
   return {
     sessionId:              tracking.sessionId,
+    layout:                 getLayout(),
     conditionVersion:       tracking.conditionVersion,
     strategyIndex:          typeof ACTIVE_STRATEGY !== 'undefined' ? ACTIVE_STRATEGY : null,
     interactionCount:       tracking.interactionCount,
@@ -432,6 +536,7 @@ function getSessionData() {
     finalChoice:            tracking.finalChoice,
     finalChoiceLabel:       resolvePaymentLabel(tracking.finalChoice),
     allChoices:             tracking.allChoices,
+    sliderValues:           tracking.sliderValues,
     customAmount:           tracking.customAmount,
     usedSlider:             tracking.usedSlider,
     usedCustomInput:        tracking.usedCustomInput,
@@ -484,34 +589,25 @@ document.getElementById("submitSessionBtn").addEventListener("click", () => {
 document.addEventListener("DOMContentLoaded", () => {
   applyVersionUI();
 
-  // Set up the dynamic payment target due date (25 days out from today)
+  const dateFmt = { month: 'short', day: 'numeric', year: 'numeric' };
+
+  // Payment due date (25 days out from today).
   const targetDueDateEl = document.getElementById("dynamicDueDate");
   if (targetDueDateEl) {
-    const today = new Date();
-    today.setDate(today.getDate() + 25);
-    const formattingOptions = { month: 'short', day: 'numeric', year: 'numeric' };
-    targetDueDateEl.textContent = today.toLocaleDateString('en-US', formattingOptions);
+    const due = new Date();
+    due.setDate(due.getDate() + 25);
+    targetDueDateEl.textContent = due.toLocaleDateString('en-US', dateFmt);
   }
 
-  // 1. Determine which specific radio button exists based strictly on the ACTIVE_STRATEGY
-  let targetRadioValue = "38.00"; // Default for Strategies 1-5
-  if (typeof ACTIVE_STRATEGY !== 'undefined' && (ACTIVE_STRATEGY === 6 || ACTIVE_STRATEGY === 7)) {
-    targetRadioValue = "dynamic-min"; // Default for Strategies 6-7
+  // Statement "As of" date (statement closed ~5 days ago).
+  const statementDateEl = document.getElementById("statementDate");
+  if (statementDateEl) {
+    const closed = new Date();
+    closed.setDate(closed.getDate() - 5);
+    statementDateEl.textContent = closed.toLocaleDateString('en-US', dateFmt);
   }
 
-  // 2. Locate and check exactly ONE radio element matching that value
-  const defaultRadio = document.querySelector(`input[name="payOption"][value="${targetRadioValue}"]`);
-
-  if (defaultRadio) {
-    defaultRadio.checked = true;
-    tracking.firstChoice = defaultRadio.value;
-    tracking.finalChoice = defaultRadio.value;
-  }
-
-  // 3. Execute the exact matching rendering pipeline to kick off the application state
-  if (targetRadioValue === "dynamic-min") {
-    renderDynamicMinimumTrajectory();
-  } else {
-    render(MIN_PAYMENT);
-  }
+  // No radio is pre-selected: participants must actively enter their choice at
+  // the bottom of the page. Set up the layout's messages, tabs, and slider/graph.
+  applyLayoutRuntime();
 });

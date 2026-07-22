@@ -52,7 +52,26 @@
 
   var SCHEMA = [
     {
+      group: "Survey layout",
+      controls: [
+        {
+          key: "activeLayout", label: "Layout (1–7)", kind: "number", type: "select",
+          help: "The finalized survey condition. Also settable via ?layout=1…7 in the URL.",
+          options: [
+            { value: "1", label: "1 — Baseline control (options only)" },
+            { value: "2", label: "2 — Options + total cost & payoff time" },
+            { value: "3", label: "3 — Options + total, time, interest & principal" },
+            { value: "4", label: "4 — Slider (total & payoff time message)" },
+            { value: "5", label: "5 — Slider (interest & principal message)" },
+            { value: "6", label: "6 — Slider + graph (total, payoff time)" },
+            { value: "7", label: "7 — Slider + graph (principal, interest, total, time)" }
+          ]
+        }
+      ]
+    },
+    {
       group: "Visualization",
+      advanced: true,
       controls: [
         {
           key: "activeStrategy", label: "Chart type", kind: "number", type: "select",

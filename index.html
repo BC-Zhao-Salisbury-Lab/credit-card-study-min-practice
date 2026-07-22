@@ -54,69 +54,88 @@
       <div class="two-col-row">
 
         <section class="content-section col-left">
+
+          <!-- ── SLIDER EXPLORER (layouts 4–7) — swapped ABOVE the options ──── -->
+          <section id="sliderSection" class="section-card slider-card">
+            <p class="slider-intro">Move the slider to view the total payoff time and total payment amount. Afterwards, please enter your choice at the bottom of the screen.</p>
+
+            <div class="slider-track-area">
+              <div class="slider-bubble-rail">
+                <output id="sliderBubble" class="slider-bubble">$38.00</output>
+              </div>
+              <input id="paymentRange" type="range" min="0.00" max="1875.11" step="0.01" value="38" />
+              <div class="slider-notch-rail">
+                <span id="notchMin"       class="slider-notch"><span class="notch-tick"></span><span class="notch-label">Minimum<br>$38.00</span></span>
+                <span id="notchStatement" class="slider-notch"><span class="notch-tick"></span><span class="notch-label">Statement<br>$1,836.90</span></span>
+              </div>
+              <div class="slider-scale-labels">
+                <span>$0.00</span>
+                <span>$1,875.11 (Current Balance)</span>
+              </div>
+            </div>
+
+            <div id="sliderInfiniteMsg" class="slider-infinite-msg">&#9888; Anything past this will lead to an infinite balance.</div>
+
+            <div id="sliderMessage" class="slider-message">&bull; <span id="sliderMessageText">&mdash;</span></div>
+          </section>
+
+          <!-- ── PAYMENT CHOICES (all layouts) ───────────────────────────── -->
           <div class="section-card">
             <fieldset class="options-fieldset">
               <legend class="options-legend">Select your monthly payment option</legend>
 
               <label class="option-row">
-                <input type="radio" name="payOption" value="dynamic-min">
-                <div class="option-content">
-                  <span class="option-title">Pay Minimum Amount Due (Recalculated Monthly)</span>
-                  <span class="option-desc">Starts at $38.00</span>
-                </div>
-              </label>
-
-              <label class="option-row">
                 <input type="radio" name="payOption" value="1836.90">
                 <div class="option-content">
-                  <span class="option-title">Pay Statement Balance</span>
-                  <span class="option-desc">$1,836.90 &mdash; Clears charges from last billing cycle</span>
+                  <span class="option-title"><span class="opt-amount">$1,836.90</span> Statement Balance <span class="opt-note">(As of <span id="statementDate">—</span>)</span></span>
+                  <div class="option-msg" id="msgStatement"></div>
                 </div>
               </label>
 
               <label class="option-row">
                 <input type="radio" name="payOption" value="1875.11">
                 <div class="option-content">
-                  <span class="option-title">Pay Current Balance in Full</span>
-                  <span class="option-desc">$1,875.11 &mdash; Pays off everything including recent charges</span>
+                  <span class="option-title"><span class="opt-amount">$1,875.11</span> Current Balance</span>
+                  <div class="option-msg" id="msgCurrent"></div>
+                </div>
+              </label>
+
+              <label class="option-row">
+                <input type="radio" name="payOption" value="38.00">
+                <div class="option-content">
+                  <span class="option-title"><span class="opt-amount">$38.00</span> Minimum Payment</span>
+                  <div class="option-msg" id="msgMinimum"></div>
                 </div>
               </label>
 
               <label class="option-row option-row--other">
                 <input type="radio" name="payOption" value="other" id="radioOther">
                 <div class="option-content">
-                  <span class="option-title">Enter a Custom Amount</span>
-                  <div class="custom-input-wrap">
-                    <span class="dollar-sign">$</span>
-                    <input id="paymentInput" type="number" min="0.00" max="1836.90" step="0.01" value="50.00" placeholder="0.00" />
-                  </div>
+                  <span class="option-title">
+                    <span class="custom-input-wrap">
+                      <span class="dollar-sign">$</span>
+                      <input id="paymentInput" type="number" min="0.00" max="1875.11" step="0.01" value="" placeholder="0.00" />
+                    </span>
+                    Other Amount ($)
+                  </span>
                   <div id="errorMessage" class="error-msg" style="display: none;">&#9888; Payment must be at least $0.00</div>
+                  <div class="option-msg" id="msgOther"></div>
                 </div>
               </label>
             </fieldset>
           </div>
 
-          <section id="sliderSection" class="section-card slider-card">
-            <p class="slider-intro">Adjust your monthly payment:</p>
-            <div class="slider-track-area">
-              <div class="slider-labels">
-                <span>$0.00</span>
-                <span>$1,836.90 (Statement Balance)</span>
-              </div>
-              <input id="paymentRange" type="range" min="0.00" max="1836.90" step="0.01" value="38" />
-            </div>
-            <div class="scenario-callout">
-            <P></P>Paying <strong>$<span id="descPayment">—</span></strong>/mo clears your balance in <strong><span id="descYears">—</span></strong>. Total interest: <strong>$<span id="descAccruedInterest">0.00</span></strong> (Total paid: <strong>$<span id="descTotal">—</span></strong>).
-            </div>
-          </section>
         </section>
 
+        <!-- ── GRAPH + SUMMARY CARDS (layouts 6–7 only) ──────────────────── -->
         <section class="content-section col-right">
           <div class="section-card h-full" id="chartPositionWrapper">
+            <!-- Summary "tabs" above the graph. L6 shows Total + Payoff Time;
+                 L7 also shows Principal + Interest (per-card visibility set by CSS). -->
             <div class="results-grid" role="status" aria-live="polite">
-              <div class="result-card">
-                <div class="result-label">Time to Pay Off</div>
-                <div class="result-value" id="yearsOut">—</div>
+              <div class="result-card result-card--principal">
+                <div class="result-label">Principal Paid</div>
+                <div class="result-value" id="principalOut">—</div>
               </div>
               <div class="result-card result-card--interest">
                 <div class="result-label">Interest Paid</div>
@@ -125,6 +144,10 @@
               <div class="result-card result-card--total">
                 <div class="result-label">Total Paid</div>
                 <div class="result-value" id="totalOut">—</div>
+              </div>
+              <div class="result-card result-card--time">
+                <div class="result-label">Time to Pay Off</div>
+                <div class="result-value" id="yearsOut">—</div>
               </div>
             </div>
             <p class="disclaimer">* Assumes a 22.99% annual interest rate and no additional charges to the account.</p>
@@ -143,16 +166,10 @@
 
                 <div class="canvas-holder">
                   <canvas id="stackedChart"></canvas>
-
-                  <div id="chartInfiniteOverlay">
-                    <div style="font-size: 3.5rem; color: #9B3232; line-height: 1; margin-bottom: 8px;">&infin;</div>
-                    <h4 style="font-size: 1rem; font-weight: 700; color: #1C3A2A; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em;">Balance Cannot Be Paid Off</h4>
-                    <p style="font-size: 0.85rem; color: #4A5C50; max-width: 320px; margin: 0 auto; line-height: 1.5;">
-                      Your monthly payment does not cover the interest generated each month. As a result, your balance will continue to increase over time regardless of how long you make payments.
-                    </p>
-                  </div>
+                  <!-- Overlay retained in DOM but never shown: the slider is clamped
+                       above the un-payable threshold, so the graph never goes infinite. -->
+                  <div id="chartInfiniteOverlay" style="display:none;"></div>
                 </div>
-
               </div>
             </div>
           </div>

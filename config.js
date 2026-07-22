@@ -36,6 +36,19 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 window.CONFIG = {
+  // ── Finalized survey layout (1–7) ─────────────────────────────────────────
+  //   The single master condition each participant sees. Set via the URL
+  //   (?layout=1 … ?layout=7) or from the Research Control Panel. This REPLACES
+  //   the older ?v= version system. See the LAYOUTS table lower in this file.
+  //     1  Baseline control (four options only)
+  //     2  Choices + total cost & payoff-time message per option
+  //     3  Choices + total cost, payoff time, interest & principal per option
+  //     4  Slider + baseline choices, slider message = total & payoff time
+  //     5  Slider + baseline choices, slider message = interest & principal
+  //     6  Slider + graph (tabs: total, payoff time) + baseline choices
+  //     7  Slider + graph (tabs: principal, interest, total, payoff time)
+  activeLayout:    1,
+
   // ── Core visualization variables (formerly ACTIVE_STRATEGY / TAB_DISPLAY_MODE) ─
   activeStrategy:  8,   // 1–9: which chart is drawn (see visualizations.js header)
   tabDisplayMode:  2,   // 0 hide tabs · 1 show current tab only · 2 show all tabs
@@ -62,9 +75,12 @@ window.CONFIG = {
 
   // ── Vertical alignment (independent of infoDensity) ────────────────────────
   //   true  → when the page is shorter than the screen (e.g. "minimal" mode),
-  //           center the content in the leftover space. (DEFAULT)
+  //           center the content in the leftover space.
   //   false → anchor content to the top; leftover space sits above the footer.
-  centerContentVertically: true
+  //   Default OFF so every layout anchors to the top identically — short layouts
+  //   (1–3) and tall ones (6–7) start at the same vertical position, keeping the
+  //   presentation consistent across conditions.
+  centerContentVertically: false
 };
 
 
@@ -95,6 +111,44 @@ window.CONFIG_STORAGE_KEY = "ccStudyResearchConfig";
     }
   } catch (e) { /* private mode / disabled storage: fall back to defaults */ }
 })();
+
+// URL override: ?layout=1 … ?layout=7 always wins over any saved value so a
+// researcher can force a specific condition by link. (Replaces the ?v= system.)
+(function applyLayoutFromURL() {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    var raw = p.get("layout");
+    if (raw === null) return;
+    var n = parseInt(raw, 10);
+    if (n >= 1 && n <= 7) window.CONFIG.activeLayout = n;
+  } catch (e) { /* no URL access: keep saved/default */ }
+})();
+
+// ── Per-layout definition table ──────────────────────────────────────────────
+//   choiceMsgs   – show the explanatory message under each option row
+//   choiceDetail – "total" (cost + time) | "breakdown" (+ interest & principal)
+//   slider       – show the slider explorer above the choices
+//   sliderDetail – "total" | "breakdown" (matches the choice detail wording)
+//   graph        – show the comparison graph
+//   graphTabs    – metric tabs above the graph, in display order
+window.LAYOUTS = {
+  1: { choiceMsgs: false, choiceDetail: null,        slider: false, sliderDetail: null,        graph: false, graphTabs: [] },
+  2: { choiceMsgs: true,  choiceDetail: "total",     slider: false, sliderDetail: null,        graph: false, graphTabs: [] },
+  3: { choiceMsgs: true,  choiceDetail: "breakdown", slider: false, sliderDetail: null,        graph: false, graphTabs: [] },
+  4: { choiceMsgs: false, choiceDetail: null,        slider: true,  sliderDetail: "total",     graph: false, graphTabs: [] },
+  5: { choiceMsgs: false, choiceDetail: null,        slider: true,  sliderDetail: "breakdown", graph: false, graphTabs: [] },
+  6: { choiceMsgs: false, choiceDetail: null,        slider: true,  sliderDetail: "total",     graph: true,  graphTabs: ["total", "time"] },
+  7: { choiceMsgs: false, choiceDetail: null,        slider: true,  sliderDetail: "breakdown", graph: true,  graphTabs: ["principal", "interest", "total", "time"] }
+};
+
+// Resolve the active layout number (clamped to 1–7).
+window.getActiveLayout = function getActiveLayout() {
+  var n = Number(window.CONFIG && window.CONFIG.activeLayout);
+  return (n >= 1 && n <= 7) ? n : 1;
+};
+window.getLayoutSpec = function getLayoutSpec() {
+  return window.LAYOUTS[window.getActiveLayout()] || window.LAYOUTS[1];
+};
 
 // Persist the current CONFIG. Called by the Research Control Panel on any change.
 window.saveConfig = function saveConfig() {
@@ -250,9 +304,35 @@ window.saveConfig = function saveConfig() {
     } catch (e) { /* non-fatal: chart not built yet */ }
   }
 
+  // Apply the finalized-survey layout as body classes that CSS keys off:
+  //   layout-N               – the active layout number
+  //   feat-choice-msgs       – per-option explanatory messages visible
+  //   feat-choice-breakdown  – those messages include interest & principal
+  //   feat-slider            – slider explorer visible
+  //   feat-slider-breakdown  – slider message includes interest & principal
+  //   feat-graph             – comparison graph visible
+  //   feat-graph-breakdown   – graph offers the interest/principal metric tabs
+  function applyLayoutClasses() {
+    if (!document.body) return;
+    var n    = window.getActiveLayout();
+    var spec = window.getLayoutSpec();
+    var body = document.body;
+
+    for (var i = 1; i <= 7; i++) body.classList.toggle("layout-" + i, i === n);
+    setClass(spec.choiceMsgs,                       "feat-choice-msgs");
+    setClass(spec.choiceDetail === "breakdown",     "feat-choice-breakdown");
+    setClass(spec.slider,                           "feat-slider");
+    setClass(spec.sliderDetail === "breakdown",     "feat-slider-breakdown");
+    setClass(spec.graph,                            "feat-graph");
+    setClass(spec.graphTabs.indexOf("interest") !== -1, "feat-graph-breakdown");
+  }
+  window.applyLayoutClasses = applyLayoutClasses;
+
   function apply() {
     if (!document.body) return;
     var s = resolve();
+
+    applyLayoutClasses();
 
     // Mode marker (available for any future mode-specific CSS / analytics).
     document.body.classList.remove("density-minimal", "density-standard", "density-detailed");
