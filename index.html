@@ -35,49 +35,50 @@
   <div class="page-body">
     <div class="wrap">
 
-      <div class="account-summary">
-        <div class="account-item">
-          <span class="acct-label">Account</span>
-          <strong class="acct-value">Visa Signature (•••• 5432)</strong>
+      <div class="account-summary statement-info">
+        <div class="info-col">
+          <div class="info-line"><span class="info-label">Account:</span> &bull;&bull;&bull;&bull; 5432</div>
+          <div class="info-line"><span class="info-label">Current balance:</span> $2,675.11</div>
+          <div class="info-line"><span class="info-label">APR:</span> 21.38%</div>
         </div>
-
-        <div class="account-item highlight">
-          <span class="acct-label">Payment Due Date</span>
-          <strong id="dynamicDueDate" class="acct-value">Calculating...</strong>
-        </div>
-
-        <div class="status-badge-container">
-          <span id="accountStatusBadge" class="status-badge">Payment Required</span>
+        <div class="info-col">
+          <div class="info-line"><span class="info-label">Statement balance:</span> $2,136.90</div>
+          <div class="info-line"><span class="info-label">Minimum payment:</span> $43.00</div>
+          <div class="info-line"><span class="info-label">Payment due date:</span> <span id="dynamicDueDate">Calculating…</span></div>
         </div>
       </div>
+
+      <!-- ── SLIDER EXPLORER (layouts 4–7) — full-width band above graph + options ── -->
+      <section id="sliderSection" class="section-card slider-card">
+        <p class="slider-intro">Move the slider to view the total payoff time and total payment amount. Afterwards, please enter your choice at the bottom of the screen.</p>
+
+        <div class="slider-row">
+          <span class="scale-end">$0.00</span>
+
+          <div class="slider-track-wrap">
+            <output id="sliderBubble" class="slider-bubble">$43.00</output>
+
+            <div class="slider-lane">
+              <input id="paymentRange" type="range" min="0.00" max="2136.90" step="0.01" value="43" />
+              <button type="button" id="notchMin" class="slider-notch" title="Minimum payment ($43.00) — click to select" aria-label="Set slider to the minimum payment, $43.00"></button>
+            </div>
+
+            <div class="slider-notch-labels">
+              <span class="notch-label" id="notchMinLabel">Minimum · $43.00</span>
+            </div>
+          </div>
+
+          <span class="scale-end scale-end--right">$2,136.90<span class="scale-sub">Statement Balance</span></span>
+        </div>
+
+        <div id="sliderInfiniteMsg" class="slider-infinite-msg">&#9888; Anything past this will lead to an infinite balance.</div>
+
+        <div id="sliderMessage" class="slider-message">&bull; <span id="sliderMessageText">&mdash;</span></div>
+      </section>
 
       <div class="two-col-row">
 
         <section class="content-section col-left">
-
-          <!-- ── SLIDER EXPLORER (layouts 4–7) — swapped ABOVE the options ──── -->
-          <section id="sliderSection" class="section-card slider-card">
-            <p class="slider-intro">Move the slider to view the total payoff time and total payment amount. Afterwards, please enter your choice at the bottom of the screen.</p>
-
-            <div class="slider-track-area">
-              <div class="slider-bubble-rail">
-                <output id="sliderBubble" class="slider-bubble">$38.00</output>
-              </div>
-              <input id="paymentRange" type="range" min="0.00" max="1875.11" step="0.01" value="38" />
-              <div class="slider-notch-rail">
-                <span id="notchMin"       class="slider-notch"><span class="notch-tick"></span><span class="notch-label">Minimum<br>$38.00</span></span>
-                <span id="notchStatement" class="slider-notch"><span class="notch-tick"></span><span class="notch-label">Statement<br>$1,836.90</span></span>
-              </div>
-              <div class="slider-scale-labels">
-                <span>$0.00</span>
-                <span>$1,875.11 (Current Balance)</span>
-              </div>
-            </div>
-
-            <div id="sliderInfiniteMsg" class="slider-infinite-msg">&#9888; Anything past this will lead to an infinite balance.</div>
-
-            <div id="sliderMessage" class="slider-message">&bull; <span id="sliderMessageText">&mdash;</span></div>
-          </section>
 
           <!-- ── PAYMENT CHOICES (all layouts) ───────────────────────────── -->
           <div class="section-card">
@@ -85,25 +86,25 @@
               <legend class="options-legend">Select your monthly payment option</legend>
 
               <label class="option-row">
-                <input type="radio" name="payOption" value="1836.90">
+                <input type="radio" name="payOption" value="2136.90">
                 <div class="option-content">
-                  <span class="option-title"><span class="opt-amount">$1,836.90</span> Statement Balance <span class="opt-note">(As of <span id="statementDate">—</span>)</span></span>
+                  <span class="option-title"><span class="opt-amount">$2,136.90</span> Statement Balance <span class="opt-note">(As of <span id="statementDate">—</span>)</span></span>
                   <div class="option-msg" id="msgStatement"></div>
                 </div>
               </label>
 
               <label class="option-row">
-                <input type="radio" name="payOption" value="1875.11">
+                <input type="radio" name="payOption" value="2675.11">
                 <div class="option-content">
-                  <span class="option-title"><span class="opt-amount">$1,875.11</span> Current Balance</span>
+                  <span class="option-title"><span class="opt-amount">$2,675.11</span> Current Balance</span>
                   <div class="option-msg" id="msgCurrent"></div>
                 </div>
               </label>
 
               <label class="option-row">
-                <input type="radio" name="payOption" value="38.00">
+                <input type="radio" name="payOption" value="43.00">
                 <div class="option-content">
-                  <span class="option-title"><span class="opt-amount">$38.00</span> Minimum Payment</span>
+                  <span class="option-title"><span class="opt-amount">$43.00</span> Minimum Payment</span>
                   <div class="option-msg" id="msgMinimum"></div>
                 </div>
               </label>
@@ -114,7 +115,7 @@
                   <span class="option-title">
                     <span class="custom-input-wrap">
                       <span class="dollar-sign">$</span>
-                      <input id="paymentInput" type="number" min="0.00" max="1875.11" step="0.01" value="" placeholder="0.00" />
+                      <input id="paymentInput" type="number" min="0.00" max="2675.11" step="0.01" value="" placeholder="0.00" />
                     </span>
                     Other Amount ($)
                   </span>
@@ -150,7 +151,7 @@
                 <div class="result-value" id="yearsOut">—</div>
               </div>
             </div>
-            <p class="disclaimer">* Assumes a 22.99% annual interest rate and no additional charges to the account.</p>
+            <p class="disclaimer">* Assumes a 21.38% annual interest rate and no additional charges to the account.</p>
 
             <div id="chartSection" class="chart-section">
               <div class="chart-card">

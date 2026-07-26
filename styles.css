@@ -145,6 +145,22 @@ body {
   overflow: hidden;
 }
 
+/* Statement-info header box: two columns of account/balance facts, styled like
+   the old summary bar (bordered card) but laid out as a compact info grid. */
+.account-summary.statement-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 40px;
+  padding: 14px 22px;
+  overflow: visible;
+}
+.statement-info .info-col { display: flex; flex-direction: column; gap: 5px; }
+.statement-info .info-line { font-size: 0.9rem; color: var(--text-primary); line-height: 1.35; }
+.statement-info .info-label { color: var(--text-secondary); font-weight: 600; }
+@media (max-width: 560px) {
+  .account-summary.statement-info { grid-template-columns: 1fr; gap: 4px; }
+}
+
 .account-item {
   flex: 1;
   display: flex;
@@ -421,8 +437,8 @@ body {
 /* ─── Results Grid ───────────────────────────────────── */
 .results-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 20px;
   margin-bottom: 6px;
 }
 
@@ -430,11 +446,11 @@ body {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  padding: 6px 7px;
   /* Tall enough for label + value with breathing room, never grows */
-  height: 68px;
-  min-height: 68px;
-  max-height: 68px;
+  height: 20px;
+  min-height: 20px;
+  max-height: 20px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1085,25 +1101,17 @@ body.cfg-vcenter .page-body {
      feat-slider-breakdown · feat-graph-breakdown
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Consistent widths across conditions ─────────────────────────────────────
-   The slider + payment-choices column is a FIXED 520px in every layout, so the
-   decision UI is presented identically in all 7 conditions (no width confound).
-   The graph only appears in layouts 6 & 7 (the intended manipulation); it fills
-   the space to the right of that fixed column. In layouts 1–5 there is no graph,
-   so the whole page collapses to that single 520px column, centered, with the
-   account bar and submit button aligned to it — no asymmetric empty gaps. */
+/* ── Width scheme (per study document) ───────────────────────────────────────
+   • Header (statement info) and slider band ALWAYS span the full content width.
+   • Payment options span the full width too — EXCEPT when the graph is present
+     (conditions 5–6), where the options shrink to a 520px left column so the
+     graph can sit beside them on the right. */
 .two-col-row {
-  grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 520px) minmax(0, 1fr);  /* graph layouts (6 & 7) */
 }
+/* No graph → options fill the full content width (matching the slider + header) */
 body:not(.feat-graph) .two-col-row {
-  grid-template-columns: minmax(0, 520px);
-  justify-content: center;
-}
-body:not(.feat-graph) .account-summary,
-body:not(.feat-graph) .submit-section {
-  max-width: 520px;
-  margin-left: auto;
-  margin-right: auto;
+  grid-template-columns: 1fr;
 }
 
 /* Always anchor content to the top across every finalized layout, so the
@@ -1118,6 +1126,18 @@ body.feat-slider #sliderSection { display: block; }
 /* Right column (cards + graph): only in layouts 6 & 7 */
 .col-right { display: none; }
 body.feat-graph .col-right { display: flex; }
+
+/* In the graph layouts the graph column is taller than the options column,
+   leaving a gap under the options. Stretch the options card to the full column
+   height and centre its contents, so both columns match and the leftover space
+   reads as balanced padding inside the card rather than an empty page gap. */
+body.feat-graph .two-col-row { align-items: stretch; }
+body.feat-graph .col-left > .section-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
 /* Slider result message: shown in every slider layout (4–7), including the
    graph layouts where it sits alongside the summary cards and graph. */
@@ -1136,23 +1156,44 @@ body.feat-graph .result-card--time { display: flex; }
 body.feat-graph-breakdown .result-card--principal,
 body.feat-graph-breakdown .result-card--interest { display: flex; }
 
-/* Two cards (L6) sit side by side; four cards (L7) wrap to a 2×2 grid. */
-body.feat-graph .results-grid { grid-template-columns: 1fr 1fr; }
+/* Card row above the graph: L6 → two cards side by side; L7 → all four across
+   in a single row. The cards are compact so they read as a slim summary strip. */
+body.feat-graph .results-grid            { grid-template-columns: 1fr 1fr; gap: 8px; }
+body.feat-graph-breakdown .results-grid  { grid-template-columns: repeat(4, 1fr); }
+
+body.feat-graph .result-card {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  padding: 7px 9px;
+  gap: 1px;
+}
+body.feat-graph .result-label { font-size: 0.58rem; letter-spacing: 0.03em; }
+body.feat-graph .result-value { font-size: 0.72rem; }
+
+/* On narrow screens the four-across strip would be too cramped → fall to 2×2. */
+@media (max-width: 760px) {
+  body.feat-graph-breakdown .results-grid { grid-template-columns: 1fr 1fr; }
+}
 
 /* ── Payment option: amount-first title + message ────────────────────────── */
-.option-title .opt-amount { font-weight: 700; color: var(--primary); }
+/* Option text is black; only the dollar amount is bold (per study document). */
+.option-title            { font-weight: 400; color: var(--text-primary); }
+.option-title .opt-amount { font-weight: 700; color: var(--text-primary); }
 .option-title .opt-note   { font-weight: 400; color: var(--text-secondary); font-size: 0.85em; }
 
+/* Choice messages (conditions 1 & 2): plain black text, NO green box; only the
+   time phrase and dollar amounts are bold (via <strong> in the message HTML). */
 .option-msg {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 0.85rem;
   line-height: 1.5;
-  color: var(--text-secondary);
-  background: var(--primary-light);
-  border-left: 3px solid var(--primary);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  padding: 0;
 }
+.option-msg strong { font-weight: 700; color: var(--text-primary); }
 .option-msg:empty { display: none; }
 
 /* Inline custom-amount input inside the Other Amount title */
@@ -1172,87 +1213,137 @@ body.feat-graph .results-grid { grid-template-columns: 1fr 1fr; }
   font-weight: 500;
   margin-bottom: 14px;
 }
+/* ==========================================================
+   PAYMENT SLIDER  (full-width band above the graph + options)
+   ========================================================== */
 
-.slider-track-area { position: relative; margin: 12px 0 8px; }
+/* The slider band always spans the full content width (above the header,
+   options, and graph) in every slider condition. */
 
-/* Value bubble that rides above the thumb */
-.slider-bubble-rail { position: relative; height: 30px; }
+/* $0 on the left, current balance on the right, flanking the track */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.scale-end {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-align: center;
+  line-height: 1.2;
+}
+.scale-sub {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Track column. Symmetric top padding (bubble) and bottom labels keep the track
+   line at the vertical centre so the flanking $0 / balance labels align to it. */
+.slider-track-wrap {
+  position: relative;
+  flex: 1;
+  padding-top: 28px;
+}
+
+/* Value bubble — ALWAYS centred over the thumb */
 .slider-bubble {
   position: absolute;
-  bottom: 0;
+  top: 2px;
   transform: translateX(-50%);
   background: var(--primary);
   color: #fff;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  padding: 3px 9px;
+  line-height: 1;
+  padding: 5px 10px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  box-shadow: 0 3px 8px rgba(0,0,0,.2);
+  pointer-events: none;
 }
 .slider-bubble::after {
   content: "";
   position: absolute;
-  top: 100%;
+  top: calc(100% - 1px);   /* flush with the bubble — no seam */
   left: 50%;
   transform: translateX(-50%);
-  border: 5px solid transparent;
+  border: 6px solid transparent;
   border-top-color: var(--primary);
 }
 
-/* Notch rail beneath the track (minimum + statement markers) */
-.slider-notch-rail { position: relative; height: 44px; margin-top: 2px; }
+/* The lane holds the range input plus the on-track notch buttons */
+.slider-lane { position: relative; height: 22px; }
+.slider-lane #paymentRange {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  transform: translateY(-50%);
+  margin: 0;
+}
 
-/* Each notch is a zero-width anchor placed at its value on the track. The tick
-   and label are absolutely positioned off that anchor so the tick always sits
-   exactly on the value (and is clickable) while the label can shift at the
-   track edges without dragging the tick off-value. */
+/* Clickable notch markers sitting ON the track (distinct from the round thumb) */
 .slider-notch {
   position: absolute;
-  top: 0;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid var(--primary);
+  background: #dbdbdb;
+  border-radius: 6px;
+  box-shadow: 0 1px 1px rgba(0,0,0,.28);
   cursor: pointer;
+  z-index: 5;
+  transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
 }
-.slider-notch .notch-tick {
+.slider-notch::before {   /* inner grip line so it reads as a handle */
+  content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  transform: translateX(-50%);
-  width: 3px;
-  height: 11px;
-  background: var(--text-secondary);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 12px;
   border-radius: 1px;
-  transition: background .12s, height .12s;
+  background: var(--primary);
 }
-.slider-notch .notch-label {
+.slider-notch:hover {
+  background: var(--primary);
+  transform: translate(-50%, -50%) scale(1.18);
+  box-shadow: 0 3px 10px rgba(46,107,79,.5);
+}
+.slider-notch:hover::before { background: #fff; }
+.slider-notch:active { transform: translate(-50%, -50%) scale(1.02); }
+.slider-notch:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Notch labels sit BELOW the track (positions set by JS) */
+.slider-notch-labels { position: relative; height: 28px; }
+.notch-label {
   position: absolute;
-  top: 14px;
-  left: 0;
-  transform: translateX(-50%);   /* JS overrides at the track edges */
-  font-size: 0.66rem;
-  line-height: 1.2;
+  top: 4px;
+  transform: translateX(-50%);   /* JS nudges this inward at the track edges */
   text-align: center;
-  color: var(--text-muted);
-  font-weight: 600;
   white-space: nowrap;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--text-muted);
   cursor: pointer;
   transition: color .12s;
 }
-.slider-notch:hover .notch-tick { background: var(--primary); height: 14px; }
-.slider-notch:hover .notch-label { color: var(--primary); }
-
-.slider-scale-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  font-weight: 500;
-  margin-top: 2px;
-}
+.notch-label:hover { color: var(--primary); }
 
 /* Infinite-balance warning shown when the slider hits its clamped floor */
 .slider-infinite-msg {
   display: none;
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--danger);
@@ -1263,19 +1354,32 @@ body.feat-graph .results-grid { grid-template-columns: 1fr 1fr; }
 }
 .slider-infinite-msg.show { display: block; }
 
-/* Slider result message (mirrors the option-msg styling) */
+/* Slider result message */
 .slider-message {
   margin-top: 14px;
   font-size: 0.88rem;
   line-height: 1.55;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   background: var(--primary-light);
   border-left: 3px solid var(--primary);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
 }
+.slider-message strong { font-weight: 700; color: var(--text-primary); }
 
 @media (max-width: 640px) {
-  .slider-notch .notch-label { font-size: 0.6rem; }
+  .slider-row { gap: 8px; }
+  .scale-end { font-size: 0.7rem; }
+  .notch-label { font-size: 0.62rem; }
   .slider-bubble { font-size: 0.74rem; }
+}
+/* ── Mobile safety: collapse the columns and unconstrain the header on narrow
+   screens (these come last so they win over the desktop width rules above). ── */
+@media (max-width: 820px) {
+  body:not(.feat-slider):not(.feat-graph) .two-col-row,
+  body.feat-slider:not(.feat-graph) .two-col-row,
+  body.feat-graph .two-col-row {
+    grid-template-columns: 1fr;
+  }
+  body.feat-slider .account-summary { max-width: none; }
 }

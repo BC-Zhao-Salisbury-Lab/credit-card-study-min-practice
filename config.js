@@ -50,7 +50,7 @@ window.CONFIG = {
   activeLayout:    1,
 
   // ── Core visualization variables (formerly ACTIVE_STRATEGY / TAB_DISPLAY_MODE) ─
-  activeStrategy:  8,   // 1–9: which chart is drawn (see visualizations.js header)
+  activeStrategy:  2,   // 1–9: which chart is drawn (2 = Fixed Timeline Comparison)
   tabDisplayMode:  2,   // 0 hide tabs · 1 show current tab only · 2 show all tabs
 
   // ── Information mode (content verbosity) ───────────────────────────────────

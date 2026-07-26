@@ -78,8 +78,8 @@ function computeDynamicYMax(values, headroomFactor = 0.12) {
 
 // ─── Cumulative Amortization Builder ─────────────────────────────────────────
 function buildCumulativeSeries(payAmount, windowMonths, statementBalance, monthlyRate, isDynamicMin = false) {
-  // Simulation runs from statement balance ($1,836.90) as the payoff target.
-  // currentBalance ($1,875.11) is the total owed but charts show the statement payoff path.
+  // Simulation runs from statement balance ($2,136.90) as the payoff target.
+  // currentBalance ($2,675.11) is the total owed but charts show the statement payoff path.
   let balance     = statementBalance;
   let cumInterest = 0;
   let cumPrincipal = 0;
@@ -320,7 +320,7 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
   const isInfinite = !isFinite(displayMonths) || payment <= statementBalance * monthlyRate;
 
   // ── Remainder note ───────────────────────────────────────────────────────────
-  // Show a persistent note that $38.21 (currentBalance - statementBalance) remains
+  // Show a persistent note that $538.21 (currentBalance - statementBalance) remains
   // after statement balance is cleared, so participants aren't confused.
   const remainder = currentBalance - statementBalance;
   const remainderNoteId = "remainderNote";
@@ -471,7 +471,7 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
       return { data, radii: markPayoff ? radii : 0 };
     }
 
-    const minLine    = buildLineTrajectory(38.00);
+    const minLine    = buildLineTrajectory(43.00);
     const customLine = buildLineTrajectory(payment, true);
     const fullLine   = buildLineTrajectory(statementBalance);
 
@@ -480,9 +480,9 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
     ].filter(v => v !== null && isFinite(v)));
 
     return applyChartData(existingChart, ctx, "line", [
-      { label: "Minimum Payment ($38/mo)",          data: minLine.data,    borderColor: COLOR_MIN_PATH, borderWidth: 2, pointRadius: 0, tension: 0.1 },
+      { label: "Minimum Payment ($43/mo)",          data: minLine.data,    borderColor: COLOR_MIN_PATH, borderWidth: 2, pointRadius: 0, tension: 0.1 },
       { label: "Your Payment Choice",               data: customLine.data, borderColor: COLOR_CUSTOM,   borderWidth: 4, fill: true, backgroundColor: "rgba(0,102,204,0.07)", pointRadius: customLine.radii, pointBackgroundColor: "#FFFFFF", pointBorderColor: COLOR_CUSTOM, pointBorderWidth: 4, pointHoverRadius: 12, tension: 0.1 },
-      { label: "Pay Statement Balance ($1,836.90)", data: fullLine.data,   borderColor: COLOR_TOTAL,    borderWidth: 2, borderDash: [6, 4], pointRadius: 0, tension: 0.1 }
+      { label: "Pay Statement Balance ($2,136.90)", data: fullLine.data,   borderColor: COLOR_TOTAL,    borderWidth: 2, borderDash: [6, 4], pointRadius: 0, tension: 0.1 }
     ], {
       _labels: labels,
       _yMax: yMax,
@@ -521,7 +521,7 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
       return { interest, principal };
     }
 
-    const minTotals    = getLifetimeTotals(38.00);
+    const minTotals    = getLifetimeTotals(43.00);
     const customTotals = getLifetimeTotals(payment);
     const fullTotals   = getLifetimeTotals(statementBalance);
 
@@ -535,7 +535,7 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
       { label: "Interest Paid",  data: [minTotals.interest,  customTotals.interest,  fullTotals.interest],  backgroundColor: COLOR_INTEREST  },
       { label: "Principal Paid", data: [minTotals.principal, customTotals.principal, fullTotals.principal], backgroundColor: COLOR_PRINCIPAL }
     ], {
-      _labels: ["Minimum Due ($38/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($1,836.90)"],
+      _labels: ["Minimum Due ($43/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($2,136.90)"],
       _yMax: yMax,
       responsive: true,
       maintainAspectRatio: false,
@@ -573,11 +573,11 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
       return { interest, principal, months: m, total: interest + principal };
     }
 
-    const minF    = getLifetimeFull(38.00);
+    const minF    = getLifetimeFull(43.00);
     const customF = getLifetimeFull(payment);
     const fullF   = getLifetimeFull(statementBalance);
 
-    const barLabels = ["Minimum Due ($38/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($1,836.90)"];
+    const barLabels = ["Minimum Due ($43/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($2,136.90)"];
 
     const costMax  = computeDynamicYMax([minF.total, customF.total, fullF.total]);
     const monthMax = computeDynamicYMax([minF.months, customF.months, fullF.months]);
@@ -677,7 +677,7 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
       return total;
     }
 
-    const minTotal    = getLifetimeTotal(38.00);
+    const minTotal    = getLifetimeTotal(43.00);
     const customTotal = getLifetimeTotal(payment);
     const fullTotal   = getLifetimeTotal(statementBalance);
 
@@ -690,7 +690,7 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
         backgroundColor: [COLOR_MIN_PATH, COLOR_CUSTOM, COLOR_TOTAL]
       }
     ], {
-      _labels: ["Minimum Due ($38/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($1,836.90)"],
+      _labels: ["Minimum Due ($43/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay Statement Balance ($2,136.90)"],
       _yMax: yMax9,
       responsive: true,
       maintainAspectRatio: false,
@@ -811,16 +811,16 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
       return { data, radii: markPayoff ? radii : 0 };
     }
 
-    const minLine    = buildDecayLine(38.00);
+    const minLine    = buildDecayLine(43.00);
     const customLine = buildDecayLine(payment, true);
     const fullLine   = buildDecayLine(statementBalance);
 
     const yMax = computeDynamicYMax([...minLine.data, ...customLine.data, ...fullLine.data].filter(v => isFinite(v)));
 
     return applyChartData(existingChart, ctx, "line", [
-      { label: "Minimum Payment ($38/mo Fixed)",    data: minLine.data,    borderColor: COLOR_MIN_PATH, borderWidth: 2, pointRadius: 0, tension: 0.15 },
+      { label: "Minimum Payment ($43/mo Fixed)",    data: minLine.data,    borderColor: COLOR_MIN_PATH, borderWidth: 2, pointRadius: 0, tension: 0.15 },
       { label: "Your Payment Choice",               data: customLine.data, borderColor: COLOR_CUSTOM,   borderWidth: 4, fill: true, backgroundColor: "rgba(0,102,204,0.07)", pointRadius: customLine.radii, pointBackgroundColor: COLOR_CUSTOM, pointBorderColor: "#FFFFFF", pointBorderWidth: 2, pointHoverRadius: 10, tension: 0.05 },
-      { label: "Pay Statement Balance ($1,836.90)", data: fullLine.data,   borderColor: COLOR_TOTAL,    borderWidth: 1.5, borderDash: [5,5], pointRadius: 0, tension: 0.05 }
+      { label: "Pay Statement Balance ($2,136.90)", data: fullLine.data,   borderColor: COLOR_TOTAL,    borderWidth: 1.5, borderDash: [5,5], pointRadius: 0, tension: 0.05 }
     ], {
       _labels: labels,
       _yMax: yMax,
@@ -925,11 +925,11 @@ window.renderLayoutGraph = function renderLayoutGraph(ctx, payment, currentBalan
     return { interest, principal, months: m, total: interest + principal };
   }
 
-  const minF    = lifetime(38.00);
+  const minF    = lifetime(43.00);
   const youF    = lifetime(payment);
   const fullF   = lifetime(statementBalance);
 
-  const labels = ["Minimum ($38/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay in Full ($1,836.90)"];
+  const labels = ["Minimum ($43/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay in Full ($2,136.90)"];
   const colors = [COLOR_MIN_PATH, COLOR_CUSTOM, COLOR_TOTAL];
 
   const METRICS = {

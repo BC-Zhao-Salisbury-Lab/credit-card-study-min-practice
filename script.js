@@ -19,17 +19,21 @@ console.log("Current detected study layout:", version);
 function applyVersionUI() { /* layout visibility handled via CSS classes */ }
 
 // ─── Constants & Parameters ─────────────────────────────────
-const CURRENT_BALANCE = 1875.11;
-const STATEMENT_BALANCE = 1836.90;
-const ANNUAL_RATE     = 0.2299; // 22.99%
+const CURRENT_BALANCE = 2675.11;
+const STATEMENT_BALANCE = 2136.90;
+const ANNUAL_RATE     = 0.2138; // 21.38%
 const MONTHLY_RATE    = ANNUAL_RATE / 12;
-const MIN_PAYMENT     = 38.00;
+const MIN_PAYMENT     = 43.00;
+
+// The slider explores the payoff of the STATEMENT balance, so its scale runs
+// 0 → statement balance (the right end is the statement balance).
+const SLIDER_MAX = STATEMENT_BALANCE;
 
 // Smallest whole-cent monthly payment that still eventually clears the statement
 // balance. At or below the pure-interest point (statement × monthly rate) the
 // balance never pays off, so the slider is clamped one cent above it.
-const INFINITE_POINT    = STATEMENT_BALANCE * MONTHLY_RATE;          // ≈ 35.19
-let   MIN_SLIDER_VALUE  = Math.ceil(INFINITE_POINT * 100) / 100;      // ≈ 35.20
+const INFINITE_POINT    = STATEMENT_BALANCE * MONTHLY_RATE;          // ≈ 38.07
+let   MIN_SLIDER_VALUE  = Math.ceil(INFINITE_POINT * 100) / 100;      // ≈ 38.08
 if (MIN_SLIDER_VALUE <= INFINITE_POINT) MIN_SLIDER_VALUE += 0.01;    // guard exact-cent case
 
 // Money formatter with thousands separators, e.g. 1836.9 → "$1,836.90".
@@ -93,8 +97,8 @@ let _lastRenderPayment = MIN_PAYMENT;
 
 // ─── Mathematical Core Calculation Engines ──────────────────
 function computePayoffMetrics(monthlyPayment) {
-  // "Paid off" is defined as clearing the statement balance ($1,836.90).
-  // The remaining $38.21 (current minus statement) is a separate future obligation
+  // "Paid off" is defined as clearing the statement balance ($2,136.90).
+  // The remaining $538.21 (current minus statement) is a separate future obligation
   // and is shown as a note on charts but excluded from these calculations.
 
   if (monthlyPayment >= STATEMENT_BALANCE) {
@@ -159,54 +163,46 @@ function formatDurationLong(totalMonths) {
 
 // ─── Message Builders (layouts 2–7) ─────────────────────────
 // `detail` is "total" (cost + payoff time) or "breakdown" (+ interest & principal).
-// All wording matches the finalized survey copy; every number is computed from
-// the constants and payoff engine above (no hard-coded figures).
+// Builders return HTML: time phrases and dollar amounts are wrapped in <strong>
+// (bold black). Every number is computed from the constants + payoff engine.
+function b(s) { return `<strong>${s}</strong>`; }
 
-function msgStatementText(detail) {
+// Immediate payoff (pay the whole statement / current balance this month).
+function msgImmediate(kind, amount, detail) {
+  const bal = kind === "current" ? "current balance" : "statement balance";
   return detail === "breakdown"
-    ? `If you pay this amount, you will pay off the statement balance this month with $0 interest and ${fmt(STATEMENT_BALANCE)} principal.`
-    : `If you pay this amount, you will pay off the statement balance this month with a total of ${fmt(STATEMENT_BALANCE)}.`;
+    ? `If you pay this amount, you will pay off the ${bal} ${b("this month")} with ${b("$0 interest")} and ${b(fmt(amount) + " principal")}.`
+    : `If you pay this amount, you will pay off the ${bal} ${b("this month")} with ${b("a total of " + fmt(amount))}.`;
 }
 
-function msgCurrentText(detail) {
+function msgStatementText(detail) { return msgImmediate("statement", STATEMENT_BALANCE, detail); }
+function msgCurrentText(detail)   { return msgImmediate("current",   CURRENT_BALANCE,   detail); }
+
+// Recurring monthly payment. `lead` differs for the minimum vs a typed/slid amount.
+function msgRecurring(lead, m, detail) {
+  const principal = m.totalPaid - m.totalInterest;
+  const time = formatDurationLong(m.months);
   return detail === "breakdown"
-    ? `If you pay this amount, you will pay off the current balance this month with $0 interest and ${fmt(CURRENT_BALANCE)} principal.`
-    : `If you pay this amount, you will pay off the current balance this month with a total of ${fmt(CURRENT_BALANCE)}.`;
+    ? `${lead}, you will pay off the statement balance in ${b(time)}, and you will end up paying ${b(fmt(m.totalInterest) + " interest")} and ${b(fmt(principal) + " principal")}, ${b("a total of " + fmt(m.totalPaid))}.`
+    : `${lead}, you will pay off the statement balance in ${b(time)}, and you will end up paying ${b("a total of " + fmt(m.totalPaid))}.`;
 }
 
 function msgMinimumText(detail) {
-  const m = computePayoffMetrics(MIN_PAYMENT);
-  const principal = m.totalPaid - m.totalInterest;
-  const time = formatDurationLong(m.months);
-  const lead = "If you make no additional charges using this card and each month you pay only the minimum required amount, you will pay off the statement balance in " + time;
-  return detail === "breakdown"
-    ? `${lead}, and you will end up paying ${fmt(m.totalInterest)} interest and ${fmt(principal)} principal, a total of ${fmt(m.totalPaid)}.`
-    : `${lead}, and you will end up paying a total of ${fmt(m.totalPaid)}.`;
+  const lead = "If you pay only the minimum required amount each month, and you make no additional charges using this card";
+  return msgRecurring(lead, computePayoffMetrics(MIN_PAYMENT), detail);
 }
 
 // A monthly payment of `v` (the custom "Other Amount" field, or the slider).
-// `estimated` softens the total wording ("an estimated total of") for typed/slid values.
-function msgAmountText(v, detail, estimated) {
+function msgAmountText(v, detail) {
   if (!isFinite(v) || v <= 0) return "";
-
-  if (v >= STATEMENT_BALANCE) {
-    return detail === "breakdown"
-      ? `If you pay this amount, you will pay off the statement balance this month with $0 interest and ${fmt(STATEMENT_BALANCE)} principal.`
-      : `If you pay this amount, you will pay off the statement balance this month with a total of ${fmt(STATEMENT_BALANCE)}.`;
-  }
+  if (v >= STATEMENT_BALANCE) return msgImmediate("statement", STATEMENT_BALANCE, detail);
 
   const m = computePayoffMetrics(v);
   if (!isFinite(m.months)) {
     return "This amount does not cover the monthly interest, so the balance would never be fully paid off.";
   }
-
-  const principal   = m.totalPaid - m.totalInterest;
-  const time        = formatDurationLong(m.months);
-  const totalPhrase = estimated ? "an estimated total of" : "a total of";
-  const lead = "If you make no additional charges using this card and each month you pay this amount, you will pay off the statement balance in " + time;
-  return detail === "breakdown"
-    ? `${lead}, and you will end up paying ${fmt(m.totalInterest)} interest and ${fmt(principal)} principal, with ${totalPhrase} ${fmt(m.totalPaid)}.`
-    : `${lead}, and you will end up paying ${totalPhrase} ${fmt(m.totalPaid)}.`;
+  const lead = "If you pay this amount each month, and you make no additional charges using this card";
+  return msgRecurring(lead, m, detail);
 }
 
 // Fill the three fixed per-option messages (Statement / Current / Minimum).
@@ -214,13 +210,10 @@ function msgAmountText(v, detail, estimated) {
 function initChoiceMessages() {
   const spec   = layoutSpec();
   const detail = spec.choiceDetail;      // "total" | "breakdown" | null
-  const s = document.getElementById("msgStatement");
-  const c = document.getElementById("msgCurrent");
-  const m = document.getElementById("msgMinimum");
-  if (s) s.textContent = detail ? "• " + msgStatementText(detail) : "";
-  if (c) c.textContent = detail ? "• " + msgCurrentText(detail)   : "";
-  if (m) m.textContent = detail ? "• " + msgMinimumText(detail)   : "";
-  // Refresh the Other Amount message to the current field value (if any).
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html ? "• " + html : ""; };
+  set("msgStatement", detail && msgStatementText(detail));
+  set("msgCurrent",   detail && msgCurrentText(detail));
+  set("msgMinimum",   detail && msgMinimumText(detail));
   updateOtherMessage(parseFloat(paymentInput ? paymentInput.value : NaN));
 }
 
@@ -229,8 +222,8 @@ function updateOtherMessage(v) {
   const el = document.getElementById("msgOther");
   if (!el) return;
   const spec = layoutSpec();
-  if (!spec.choiceMsgs || !isFinite(v) || v <= 0) { el.textContent = ""; return; }
-  el.textContent = "• " + msgAmountText(v, spec.choiceDetail, true);
+  if (!spec.choiceMsgs || !isFinite(v) || v <= 0) { el.innerHTML = ""; return; }
+  el.innerHTML = "• " + msgAmountText(v, spec.choiceDetail);
 }
 
 // ─── UI Application Render Pipelines ────────────────────────
@@ -254,41 +247,31 @@ function updateStatusBadge(paymentAmount) {
 // that inset range so bubbles/notches line up with the thumb.
 const SLIDER_THUMB = 20;
 function thumbLeft(v) {
-  const pct = Math.max(0, Math.min(1, v / CURRENT_BALANCE));
+  const pct = Math.max(0, Math.min(1, v / SLIDER_MAX));
   return `calc(${(pct * 100).toFixed(3)}% - ${((pct - 0.5) * SLIDER_THUMB).toFixed(2)}px)`;
 }
 
-// Position the floating value bubble above the slider thumb, nudging it inward
-// near the track edges so it never overflows the slider.
+// Position the floating value bubble — ALWAYS centred over the thumb.
 function positionSliderBubble(v) {
   const bubble = document.getElementById("sliderBubble");
   if (!bubble || !paymentRange) return;
   bubble.textContent = fmt(v);
   bubble.style.left = thumbLeft(v);
-  const pct = Math.max(0, Math.min(1, v / CURRENT_BALANCE));
-  if (pct > 0.9)      bubble.style.transform = "translateX(calc(-100% + 14px))";
-  else if (pct < 0.1) bubble.style.transform = "translateX(-14px)";
-  else                bubble.style.transform = "translateX(-50%)";
+  bubble.style.transform = "translateX(-50%)";
 }
 
-// Place the minimum-payment and statement-balance notches on the 0→current
-// scale. The tick sits exactly on the value; the label is nudged inward near the
-// track edges so it never overflows the slider.
+// Place the minimum-payment notch marker exactly on the track at its value, with
+// its label centred beneath. (The statement balance is now the slider's right
+// end, so it no longer needs a mid-track notch.)
 function positionNotches() {
-  const place = (id, val) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.left = thumbLeft(val);
-    const pct = Math.max(0, Math.min(1, val / CURRENT_BALANCE));
-    const label = el.querySelector(".notch-label");
-    if (label) {
-      if (pct > 0.82)      label.style.transform = "translateX(calc(-100% + 8px))";
-      else if (pct < 0.18) label.style.transform = "translateX(-8px)";
-      else                 label.style.transform = "translateX(-50%)";
-    }
-  };
-  place("notchMin", MIN_PAYMENT);
-  place("notchStatement", STATEMENT_BALANCE);
+  const left = thumbLeft(MIN_PAYMENT);
+  const marker = document.getElementById("notchMin");
+  if (marker) marker.style.left = left;
+  const label = document.getElementById("notchMinLabel");
+  if (label) {
+    label.style.left = left;
+    label.style.transform = "translateX(-50%)";
+  }
 }
 
 // Jump the slider to a value (used by the clickable notches). Behaves like a
@@ -298,7 +281,7 @@ function setSliderValue(v) {
   if (!paymentRange) return;
   let val = v;
   if (val < MIN_SLIDER_VALUE) val = MIN_SLIDER_VALUE;
-  if (val > CURRENT_BALANCE)  val = CURRENT_BALANCE;
+  if (val > SLIDER_MAX)       val = SLIDER_MAX;
   paymentRange.value = String(val);
   const infMsg = document.getElementById("sliderInfiniteMsg");
   if (infMsg) infMsg.classList.remove("show");
@@ -334,7 +317,7 @@ function renderSlider(v) {
   positionSliderBubble(v);
 
   const msgEl = document.getElementById("sliderMessageText");
-  if (msgEl) msgEl.textContent = msgAmountText(v, layoutSpec().sliderDetail, false);
+  if (msgEl) msgEl.innerHTML = msgAmountText(v, layoutSpec().sliderDetail);
 
   updateStatusBadge(v);
   updateCards(v);
@@ -466,12 +449,12 @@ if (paymentRange) {
     commitSliderChoice(val);
   });
 
-  // Clickable notches: jump the slider straight to the minimum or statement
-  // balance without needing to drag precisely.
-  const notchMinEl  = document.getElementById("notchMin");
-  const notchStmtEl = document.getElementById("notchStatement");
-  if (notchMinEl)  notchMinEl.addEventListener("click",  () => setSliderValue(MIN_PAYMENT));
-  if (notchStmtEl) notchStmtEl.addEventListener("click", () => setSliderValue(STATEMENT_BALANCE));
+  // Clickable minimum notch (marker + its label): jump the slider straight to
+  // the minimum payment without needing to drag precisely.
+  const toMin = () => setSliderValue(MIN_PAYMENT);
+  ["notchMin", "notchMinLabel"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.addEventListener("click", toMin);
+  });
 }
 
 // Other Amount field: records the custom choice and updates its message (layouts
@@ -513,10 +496,9 @@ if (paymentInput) {
 
 // ─── Data Extraction & PostMessage Core Logic ───────────────
 function resolvePaymentLabel(choiceValue) {
-  if (choiceValue === 'dynamic-min') return 'Minimum Payment (Recalculated Monthly)';
-  if (choiceValue === '38.00')      return 'Minimum Payment ($38.00)';
-  if (choiceValue === '1836.90')    return 'Statement Balance ($1,836.90)';
-  if (choiceValue === '1875.11')    return 'Current Balance ($1,875.11)';
+  if (choiceValue === '43.00')      return 'Minimum Payment ($43.00)';
+  if (choiceValue === '2136.90')    return 'Statement Balance ($2,136.90)';
+  if (choiceValue === '2675.11')    return 'Current Balance ($2,675.11)';
   if (choiceValue === 'other')      return `Other Amount ($${tracking.customAmount !== null ? tracking.customAmount.toFixed(2) : '?'})`;
   return choiceValue ?? null;
 }
