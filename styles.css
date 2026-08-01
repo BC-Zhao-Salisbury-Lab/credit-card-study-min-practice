@@ -458,11 +458,6 @@ body {
   gap: 2px;
 }
 
-.result-card--total {
-  border-color: var(--primary);
-  background: var(--primary-light);
-}
-
 .result-label {
   font-size: 0.7rem;
   font-weight: 600;
@@ -483,7 +478,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.result-card--total .result-value { color: var(--primary); }
 .result-sub { font-size: 0.68rem; color: var(--text-muted); margin-top: 1px; }
 
 .disclaimer {
@@ -853,14 +847,6 @@ body {
   grid-template-columns: 1fr 1fr 1fr;
 }
 
-.result-card--interest {
-  border-color: #E07B00;
-  background: rgba(224,123,0,0.08);
-}
-.result-card--interest .result-value {
-  color: #E07B00;
-}
-
 /* ─── Visualization Description ─────────────────────── */
 .viz-desc {
   font-size: 0.83rem;
@@ -1170,11 +1156,19 @@ body.feat-graph .result-card {
 }
 body.feat-graph .result-label { font-size: 0.58rem; letter-spacing: 0.03em; }
 body.feat-graph .result-value { font-size: 0.72rem; }
+/* Time-to-pay-off card carries the month count in parentheses, so let it wrap. */
+body.feat-graph .result-card--time .result-value { white-space: normal; }
 
 /* On narrow screens the four-across strip would be too cramped → fall to 2×2. */
 @media (max-width: 760px) {
   body.feat-graph-breakdown .results-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* Slider intro line is shown in every information-display mode (incl. Minimal). */
+body.feat-slider .slider-intro { display: block !important; }
+
+/* Simple submit bar: just the centered "Submit payment" button. */
+.submit-card--simple { justify-content: center; }
 
 /* ── Payment option: amount-first title + message ────────────────────────── */
 /* Option text is black; only the dollar amount is bold (per study document). */
@@ -1278,6 +1272,21 @@ body.feat-graph .result-value { font-size: 0.72rem; }
 
 /* The lane holds the range input plus the on-track notch buttons */
 .slider-lane { position: relative; height: 22px; }
+/* Visible track bar sits behind everything so the ticks (which are ABOVE it but
+   BEHIND the range input's thumb) show over it. */
+.slider-track-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  height: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  z-index: 0;
+}
+/* The range input's own track is transparent; its thumb (z-index 2) paints on
+   top of the reference ticks so a tick is hidden behind the slider dot. */
 .slider-lane #paymentRange {
   position: absolute;
   top: 50%;
@@ -1285,45 +1294,27 @@ body.feat-graph .result-value { font-size: 0.72rem; }
   width: 100%;
   transform: translateY(-50%);
   margin: 0;
+  background: transparent;
+  z-index: 2;
 }
+.slider-lane #paymentRange::-webkit-slider-runnable-track { background: transparent; }
+.slider-lane #paymentRange::-moz-range-track { background: transparent; }
 
-/* Clickable notch markers sitting ON the track (distinct from the round thumb) */
-.slider-notch {
+/* Small, non-interactive reference ticks on the track (minimum & statement). */
+.slider-tick {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 14px;
-  height: 22px;
-  padding: 0;
-  border: 2px solid var(--primary);
-  background: #dbdbdb;
-  border-radius: 6px;
-  box-shadow: 0 1px 1px rgba(0,0,0,.28);
-  cursor: pointer;
-  z-index: 5;
-  transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--text-muted);
+  z-index: 1;
+  pointer-events: none;
 }
-.slider-notch::before {   /* inner grip line so it reads as a handle */
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 2px;
-  height: 12px;
-  border-radius: 1px;
-  background: var(--primary);
-}
-.slider-notch:hover {
-  background: var(--primary);
-  transform: translate(-50%, -50%) scale(1.18);
-  box-shadow: 0 3px 10px rgba(46,107,79,.5);
-}
-.slider-notch:hover::before { background: #fff; }
-.slider-notch:active { transform: translate(-50%, -50%) scale(1.02); }
-.slider-notch:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-/* Notch labels sit BELOW the track (positions set by JS) */
+/* Marker labels sit BELOW the track (positions set by JS); labels are clickable
+   so a participant can still jump to the minimum / statement balance. */
 .slider-notch-labels { position: relative; height: 28px; }
 .notch-label {
   position: absolute;

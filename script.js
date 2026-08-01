@@ -25,16 +25,14 @@ const ANNUAL_RATE     = 0.2138; // 21.38%
 const MONTHLY_RATE    = ANNUAL_RATE / 12;
 const MIN_PAYMENT     = 43.00;
 
-// The slider explores the payoff of the STATEMENT balance, so its scale runs
-// 0 → statement balance (the right end is the statement balance).
-const SLIDER_MAX = STATEMENT_BALANCE;
+// The slider runs 0 → current balance (its right end is the current balance),
+// with markers for the minimum payment and the statement balance along the way.
+const SLIDER_MAX = CURRENT_BALANCE;
 
-// Smallest whole-cent monthly payment that still eventually clears the statement
-// balance. At or below the pure-interest point (statement × monthly rate) the
-// balance never pays off, so the slider is clamped one cent above it.
-const INFINITE_POINT    = STATEMENT_BALANCE * MONTHLY_RATE;          // ≈ 38.07
-let   MIN_SLIDER_VALUE  = Math.ceil(INFINITE_POINT * 100) / 100;      // ≈ 38.08
-if (MIN_SLIDER_VALUE <= INFINITE_POINT) MIN_SLIDER_VALUE += 0.01;    // guard exact-cent case
+// At or below the pure-interest point (statement × monthly rate) the balance can
+// never be paid off. The slider is NOT clamped there — participants may slide
+// into that zone — but the message switches to the "never paid off" wording.
+const INFINITE_POINT = STATEMENT_BALANCE * MONTHLY_RATE;   // ≈ 38.07
 
 // Money formatter with thousands separators, e.g. 1836.9 → "$1,836.90".
 function fmt(n) {
@@ -199,7 +197,7 @@ function msgAmountText(v, detail) {
 
   const m = computePayoffMetrics(v);
   if (!isFinite(m.months)) {
-    return "This amount does not cover the monthly interest, so the balance would never be fully paid off.";
+    return `If you pay this amount each month, it will be lower than the monthly interest, so ${b("your balance will never be fully paid off")}.`;
   }
   const lead = "If you pay this amount each month, and you make no additional charges using this card";
   return msgRecurring(lead, m, detail);
@@ -251,27 +249,36 @@ function thumbLeft(v) {
   return `calc(${(pct * 100).toFixed(3)}% - ${((pct - 0.5) * SLIDER_THUMB).toFixed(2)}px)`;
 }
 
-// Position the floating value bubble — ALWAYS centred over the thumb.
+// Position the floating value bubble — ALWAYS centred over the thumb. The bubble
+// stays hidden until the participant first interacts with the slider.
 function positionSliderBubble(v) {
   const bubble = document.getElementById("sliderBubble");
   if (!bubble || !paymentRange) return;
   bubble.textContent = fmt(v);
   bubble.style.left = thumbLeft(v);
   bubble.style.transform = "translateX(-50%)";
+  bubble.style.visibility = tracking.usedSlider ? "visible" : "hidden";
 }
 
-// Place the minimum-payment notch marker exactly on the track at its value, with
-// its label centred beneath. (The statement balance is now the slider's right
-// end, so it no longer needs a mid-track notch.)
+// Place the minimum-payment and statement-balance markers on the track at their
+// values, with labels beneath. Labels are nudged inward at the edges so they
+// don't overflow the slider (the minimum sits near the far left).
 function positionNotches() {
-  const left = thumbLeft(MIN_PAYMENT);
-  const marker = document.getElementById("notchMin");
-  if (marker) marker.style.left = left;
-  const label = document.getElementById("notchMinLabel");
-  if (label) {
-    label.style.left = left;
-    label.style.transform = "translateX(-50%)";
-  }
+  const place = (markerId, labelId, val) => {
+    const left = thumbLeft(val);
+    const marker = document.getElementById(markerId);
+    if (marker) marker.style.left = left;
+    const label = document.getElementById(labelId);
+    if (label) {
+      label.style.left = left;
+      const pct = Math.max(0, Math.min(1, val / SLIDER_MAX));
+      if (pct > 0.82)      label.style.transform = "translateX(calc(-100% + 8px))";
+      else if (pct < 0.18) label.style.transform = "translateX(-8px)";
+      else                 label.style.transform = "translateX(-50%)";
+    }
+  };
+  place("notchMin",       "notchMinLabel",       MIN_PAYMENT);
+  place("notchStatement", "notchStatementLabel", STATEMENT_BALANCE);
 }
 
 // Jump the slider to a value (used by the clickable notches). Behaves like a
@@ -279,12 +286,8 @@ function positionNotches() {
 // slider itself — stays unlinked from the radio selection.
 function setSliderValue(v) {
   if (!paymentRange) return;
-  let val = v;
-  if (val < MIN_SLIDER_VALUE) val = MIN_SLIDER_VALUE;
-  if (val > SLIDER_MAX)       val = SLIDER_MAX;
+  let val = Math.max(0, Math.min(SLIDER_MAX, v));
   paymentRange.value = String(val);
-  const infMsg = document.getElementById("sliderInfiniteMsg");
-  if (infMsg) infMsg.classList.remove("show");
   if (!tracking.usedSlider) {
     tracking.usedSlider = true;
     tracking.firstSliderUseTime = Date.now() - tracking.startTime;
@@ -305,7 +308,8 @@ function updateCards(v) {
   if (p)           p.textContent           = inf ? "Infinite" : fmt(principal);
   if (interestOut) interestOut.textContent = inf ? "Infinite" : fmt(m.totalInterest);
   if (totalOut)    totalOut.textContent    = inf ? "Infinite" : fmt(m.totalPaid);
-  if (yearsOut)    yearsOut.textContent    = inf ? "Never"    : formatDurationText(m.months);
+  // Time-to-pay-off card shows the month count in parentheses (per study doc).
+  if (yearsOut)    yearsOut.textContent    = inf ? "Never"    : `${formatDurationText(m.months)} (${m.months} months)`;
 }
 
 // Master slider renderer (layouts 4–7). VISUAL ONLY: updates the bubble, the
@@ -325,24 +329,18 @@ function renderSlider(v) {
   if (layoutSpec().graph) updateCharts(v);
 }
 
-// Draw the graph via visualizations.js using the researcher-selected chart type
-// (ACTIVE_STRATEGY). Kept swappable from the Research Control Panel — changing
-// "Chart type" there redraws with the current slider value. Mirrors the original
-// pipeline so all 9 chart strategies remain available.
+// Draw the finalized-survey graph (visualizations.js). Layout 7 shows the
+// interest/principal breakdown; layout 6 shows a single "total paid" series.
+// Driven by the slider value.
 function updateCharts(paymentAmount, animate = true) {
   if (!chartCtx) return;
   if (typeof _animateNext !== 'undefined') _animateNext = animate;
-  if (typeof renderStudyChart !== 'function') return;
+  if (typeof window.renderFinalGraph !== 'function') return;
 
-  const result = renderStudyChart(
-    chartCtx, paymentAmount, CURRENT_BALANCE, STATEMENT_BALANCE, MONTHLY_RATE,
-    computePayoffMetrics, () => { updateCharts(paymentAmount, true); }, activeChart
+  const breakdown = layoutSpec().graphTabs.indexOf('interest') !== -1; // layout 7
+  activeChart = window.renderFinalGraph(
+    chartCtx, paymentAmount, STATEMENT_BALANCE, MONTHLY_RATE, breakdown, activeChart
   );
-
-  if (result !== activeChart) {
-    if (activeChart && result === null) { activeChart.destroy(); activeChart = null; }
-    else if (result !== null) { if (activeChart) activeChart.destroy(); activeChart = result; }
-  }
 }
 
 // Apply everything that depends on the active layout at runtime: fixed choice
@@ -354,7 +352,6 @@ function applyLayoutRuntime() {
   if (layoutSpec().slider) {
     let v = paymentRange ? parseFloat(paymentRange.value) : MIN_PAYMENT;
     if (!isFinite(v)) v = MIN_PAYMENT;
-    if (v < MIN_SLIDER_VALUE) { v = MIN_SLIDER_VALUE; if (paymentRange) paymentRange.value = String(v); }
     _animateNext = true;
     renderSlider(v);
   }
@@ -384,6 +381,10 @@ document.querySelectorAll('input[name="payOption"]').forEach(radio => {
         tracking.allChoices.push(Number(val.toFixed(2)));
       }
     } else {
+      // Picking a fixed option resets any amount typed into "Other Amount".
+      if (paymentInput) paymentInput.value = "";
+      tracking.customAmount = null;
+      updateOtherMessage(NaN);
       tracking.allChoices.push(Number((+radio.value).toFixed(2)));
     }
   });
@@ -408,26 +409,16 @@ function commitSliderChoice(val) {
 
 if (paymentRange) {
   paymentRange.addEventListener('input', (e) => {
-    let val = parseFloat(e.target.value);
+    const val = parseFloat(e.target.value);
 
-    // Clamp: the slider visually spans to $0 but cannot be moved below the
-    // point where the balance becomes un-payable. At the floor, warn the user.
-    const infMsg = document.getElementById("sliderInfiniteMsg");
-    if (val < MIN_SLIDER_VALUE) {
-      val = MIN_SLIDER_VALUE;
-      paymentRange.value = String(MIN_SLIDER_VALUE);
-      if (infMsg) infMsg.classList.add("show");
-    } else if (infMsg) {
-      infMsg.classList.remove("show");
-    }
-
-    // First-touch timing.
+    // First-touch timing (also reveals the value bubble for the first time).
     if (!tracking.usedSlider) {
       tracking.usedSlider = true;
       tracking.firstSliderUseTime = Date.now() - tracking.startTime;
     }
 
-    // Visual-only render (bubble + message + graph). Choices untouched.
+    // Visual-only render (bubble + message + graph). Choices untouched. The
+    // slider may enter the un-payable zone; the message handles that wording.
     _animateNext = false;
     renderSlider(val);
 
@@ -444,16 +435,17 @@ if (paymentRange) {
   paymentRange.addEventListener('change', (e) => {
     if (!SLIDER_COMMIT_LOGGING) return;
     if (_sliderDwellTimer) { clearTimeout(_sliderDwellTimer); _sliderDwellTimer = null; }
-    let val = parseFloat(e.target.value);
-    if (val < MIN_SLIDER_VALUE) val = MIN_SLIDER_VALUE;
-    commitSliderChoice(val);
+    commitSliderChoice(parseFloat(e.target.value));
   });
 
-  // Clickable minimum notch (marker + its label): jump the slider straight to
-  // the minimum payment without needing to drag precisely.
-  const toMin = () => setSliderValue(MIN_PAYMENT);
+  // Clickable markers (marker + its label): jump the slider straight to the
+  // minimum payment or the statement balance without dragging precisely.
+  const jump = (val) => () => setSliderValue(val);
   ["notchMin", "notchMinLabel"].forEach(id => {
-    const el = document.getElementById(id); if (el) el.addEventListener("click", toMin);
+    const el = document.getElementById(id); if (el) el.addEventListener("click", jump(MIN_PAYMENT));
+  });
+  ["notchStatement", "notchStatementLabel"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.addEventListener("click", jump(STATEMENT_BALANCE));
   });
 }
 
@@ -565,7 +557,7 @@ document.getElementById("submitSessionBtn").addEventListener("click", () => {
   const submitBtn = document.getElementById("submitSessionBtn");
   submitBtn.disabled = true;
   submitBtn.style.backgroundColor = "#4A5C50";
-  submitBtn.innerHTML = "<i class='fas fa-check-circle'></i> Session Submitted Successfully";
+  submitBtn.innerHTML = "<i class='fas fa-check-circle'></i> Payment submitted";
 });
 
 document.addEventListener("DOMContentLoaded", () => {

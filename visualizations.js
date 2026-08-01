@@ -900,116 +900,101 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- *  FINALIZED-SURVEY COMPARISON GRAPH  (layouts 6 & 7)
- *  A bar chart comparing three payment strategies — Minimum, the participant's
- *  slider "Your Choice", and Pay in Full — for one metric at a time. The metric
- *  is chosen by the tabs above the graph:
- *      layout 6 → total, payoff time
- *      layout 7 → principal, interest, total, payoff time
- *  It is driven only by the slider (decoupled from the choice radios) and never
- *  enters an infinite state (the slider is clamped above the un-payable point).
+ *  FINALIZED-SURVEY GRAPH  (layouts 6 & 7)
+ *  Cumulative payment over a fixed 140-month window, driven by the slider value.
+ *   • breakdown = true  (layout 7): stacked Interest + Principal (softened orange)
+ *   • breakdown = false (layout 6): a single "Total Paid" series, one colour,
+ *                                    with only the total shown on hover.
+ *  No chart title/disclaimer here — those live in the summary cards.
  * ═══════════════════════════════════════════════════════════════════════════ */
-window.renderLayoutGraph = function renderLayoutGraph(ctx, payment, currentBalance, statementBalance, monthlyRate, metric, existingChart) {
+const COLOR_INTEREST_SOFT = "#E9B879";   // softened orange (less visually dominant)
+const COLOR_TOTAL_SINGLE  = "#2E6B4F";   // single-series "total paid" colour (brand green)
+
+window.renderFinalGraph = function renderFinalGraph(ctx, payment, statementBalance, monthlyRate, breakdown, existingChart) {
   if (!ctx) return existingChart || null;
+  const WINDOW = 140;
 
-  function lifetime(payAmount) {
-    let bal = statementBalance, interest = 0, principal = 0, m = 0;
-    while (bal > 0 && m < 1200) {
-      m++;
-      const int  = payAmount >= statementBalance ? 0 : bal * monthlyRate;
-      const prin = Math.min(payAmount - int, bal);
-      bal       -= prin;
-      interest  += int;
-      principal += prin;
+  // Build cumulative interest / principal / total month by month. Handles the
+  // un-payable zone (payment below the monthly interest) without breaking.
+  let bal = statementBalance, cumI = 0, cumP = 0;
+  const interestData = [], principalData = [], totalData = [];
+  for (let m = 1; m <= WINDOW; m++) {
+    if (bal > 0) {
+      const interest = (payment >= statementBalance) ? 0 : bal * monthlyRate;
+      const wantPrincipal = payment - interest;               // may be negative
+      let interestPaid, principalPaid;
+      if (wantPrincipal < 0) {                                 // never pays off
+        interestPaid = payment; principalPaid = 0; bal += (interest - payment);
+      } else {
+        principalPaid = Math.min(wantPrincipal, bal); interestPaid = interest; bal -= principalPaid;
+      }
+      cumI += interestPaid; cumP += principalPaid;
+      interestData.push(cumI); principalData.push(cumP); totalData.push(cumI + cumP);
+    } else {
+      interestData.push(null); principalData.push(null); totalData.push(null);
     }
-    return { interest, principal, months: m, total: interest + principal };
   }
 
-  const minF    = lifetime(43.00);
-  const youF    = lifetime(payment);
-  const fullF   = lifetime(statementBalance);
+  const labels = Array.from({ length: WINDOW }, (_, i) => `${i + 1}`);
+  const datasets = breakdown
+    ? [
+        { label: "Interest Paid",  data: interestData,  backgroundColor: COLOR_INTEREST_SOFT },
+        { label: "Principal Paid", data: principalData, backgroundColor: COLOR_PRINCIPAL }
+      ]
+    : [
+        { label: "Total Paid", data: totalData, backgroundColor: COLOR_TOTAL_SINGLE }
+      ];
+  const yMax = computeDynamicYMax((breakdown ? totalData : totalData).filter(v => v !== null));
 
-  const labels = ["Minimum ($43/mo)", `Your Choice ($${payment.toFixed(2)}/mo)`, "Pay in Full ($2,136.90)"];
-  const colors = [COLOR_MIN_PATH, COLOR_CUSTOM, COLOR_TOTAL];
-
-  const METRICS = {
-    total:     { pick: f => f.total,     axis: "Total Amount Paid ($)", isMoney: true,  name: "Total Paid" },
-    principal: { pick: f => f.principal, axis: "Principal Paid ($)",    isMoney: true,  name: "Principal" },
-    interest:  { pick: f => f.interest,  axis: "Interest Paid ($)",     isMoney: true,  name: "Interest" },
-    time:      { pick: f => f.months,    axis: "Months to Pay Off",     isMoney: false, name: "Months to Pay Off" }
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 0 },
+    scales: {
+      x: { stacked: breakdown, title: { display: true, text: "Months Since First Payment", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { autoSkip: true, maxTicksLimit: 14 } },
+      y: { stacked: breakdown, min: 0, max: yMax, title: { display: true, text: "Total Paid ($)", color: "var(--text-secondary)", font: { weight: 600 } }, ticks: { callback: v => "$" + v.toLocaleString() } }
+    },
+    plugins: {
+      legend: { display: breakdown, position: "top", labels: { boxWidth: 12, padding: 14, font: { family: "'Libre Franklin', sans-serif", size: 12 } } },
+      tooltip: {
+        mode: "index", intersect: false, padding: 12,
+        backgroundColor: "rgba(28,58,42,0.95)",
+        titleFont: { size: 13, weight: 700 }, bodyFont: { size: 12 },
+        callbacks: breakdown
+          ? {
+              title: c => `Month ${c[0].label}`,
+              label: c => ` ${c.dataset.label}: $${c.parsed.y.toFixed(2)}`,
+              footer: items => `Total Paid: $${items.reduce((s, i) => s + i.parsed.y, 0).toFixed(2)}`
+            }
+          : {
+              title: c => `Month ${c[0].label}`,
+              label: c => ` Total Paid: $${c.parsed.y.toFixed(2)}`
+            }
+      }
+    },
+    barPercentage: 1.0,
+    categoryPercentage: 1.0
   };
-  const spec = METRICS[metric] || METRICS.total;
-  const data = [spec.pick(minF), spec.pick(youF), spec.pick(fullF)];
-  const yMax = computeDynamicYMax(data);
 
-  // Payoff badge → the participant's current slider choice.
-  const badge = document.getElementById("chartPayoffBadge");
-  if (badge) {
-    badge.style.color = "var(--primary)";
-    badge.innerText = youF.months <= 1
-      ? "— Your choice pays off immediately"
-      : `— Your choice pays off in ${youF.months} months`;
-  }
-
-  const tickFmt = spec.isMoney
-    ? (v => "$" + v.toLocaleString())
-    : (v => v + " mo");
-
-  // Update in place when the metric (and thus axis format) is unchanged;
-  // otherwise rebuild so axis titles / tick formatting refresh cleanly.
-  if (existingChart && !existingChart._destroying &&
-      existingChart.config.type === "bar" && existingChart._metric === metric) {
+  // Recreate on mode change (breakdown <-> total); update in place otherwise.
+  const mode = breakdown ? "breakdown" : "total";
+  if (existingChart && !existingChart._destroying && existingChart._mode === mode &&
+      existingChart.data.datasets.length === datasets.length) {
     existingChart.data.labels = labels;
-    existingChart.data.datasets[0].data = data;
-    existingChart.data.datasets[0].backgroundColor = colors;
+    datasets.forEach((ds, i) => {
+      existingChart.data.datasets[i].data = ds.data;
+      existingChart.data.datasets[i].backgroundColor = ds.backgroundColor;
+    });
     existingChart.options.scales.y.max = yMax;
     existingChart.options.animation = { duration: 0 };
-    existingChart.update('none');
-    if (_animateNext && ctx.canvas) {
-      ctx.canvas.classList.remove('chart-fade-in');
-      void ctx.canvas.offsetWidth;
-      ctx.canvas.classList.add('chart-fade-in');
-    }
+    existingChart.update("none");
+    if (_animateNext && ctx.canvas) { ctx.canvas.classList.remove('chart-fade-in'); void ctx.canvas.offsetWidth; ctx.canvas.classList.add('chart-fade-in'); }
     return existingChart;
   }
 
   if (existingChart) { try { existingChart.destroy(); } catch (e) {} }
-
-  const chart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{ label: spec.name, data, backgroundColor: colors }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 0 },
-      scales: {
-        x: { title: { display: true, text: "Payment Strategy", color: "var(--text-secondary)", font: { weight: 600 } } },
-        y: {
-          min: 0, max: yMax,
-          title: { display: true, text: spec.axis, color: "var(--text-secondary)", font: { weight: 600 } },
-          ticks: { callback: tickFmt }
-        }
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          padding: 12, backgroundColor: "rgba(28,58,42,0.95)",
-          callbacks: {
-            title: c => c[0].label,
-            label: c => spec.isMoney ? ` ${spec.name}: $${c.parsed.y.toFixed(2)}` : ` ${spec.name}: ${c.parsed.y}`
-          }
-        }
-      }
-    }
-  });
-  chart._metric = metric;
-  if (_animateNext && ctx.canvas) {
-    ctx.canvas.classList.remove('chart-fade-in');
-    void ctx.canvas.offsetWidth;
-    ctx.canvas.classList.add('chart-fade-in');
-  }
+  const chart = new Chart(ctx, { type: "bar", data: { labels, datasets }, options });
+  chart._mode = mode;
+  if (_animateNext && ctx.canvas) { ctx.canvas.classList.remove('chart-fade-in'); void ctx.canvas.offsetWidth; ctx.canvas.classList.add('chart-fade-in'); }
   return chart;
 };

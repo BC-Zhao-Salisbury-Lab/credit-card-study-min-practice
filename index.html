@@ -59,21 +59,23 @@
             <output id="sliderBubble" class="slider-bubble">$43.00</output>
 
             <div class="slider-lane">
-              <input id="paymentRange" type="range" min="0.00" max="2136.90" step="0.01" value="43" />
-              <button type="button" id="notchMin" class="slider-notch" title="Minimum payment ($43.00) — click to select" aria-label="Set slider to the minimum payment, $43.00"></button>
+              <div class="slider-track-line"></div>
+              <!-- Small reference ticks sit ON the track and BEHIND the slider dot -->
+              <span id="notchMin" class="slider-tick" title="Minimum payment ($43.00)"></span>
+              <span id="notchStatement" class="slider-tick" title="Statement balance ($2,136.90)"></span>
+              <input id="paymentRange" type="range" min="0.00" max="2675.11" step="0.01" value="43" />
             </div>
 
             <div class="slider-notch-labels">
               <span class="notch-label" id="notchMinLabel">Minimum · $43.00</span>
+              <span class="notch-label" id="notchStatementLabel">Statement balance · $2,136.90</span>
             </div>
           </div>
 
-          <span class="scale-end scale-end--right">$2,136.90<span class="scale-sub">Statement Balance</span></span>
+          <span class="scale-end scale-end--right">$2,675.11</span>
         </div>
 
-        <div id="sliderInfiniteMsg" class="slider-infinite-msg">&#9888; Anything past this will lead to an infinite balance.</div>
-
-        <div id="sliderMessage" class="slider-message">&bull; <span id="sliderMessageText">&mdash;</span></div>
+        <div id="sliderMessage" class="slider-message"><span id="sliderMessageText">&mdash;</span></div>
       </section>
 
       <div class="two-col-row">
@@ -113,11 +115,11 @@
                 <input type="radio" name="payOption" value="other" id="radioOther">
                 <div class="option-content">
                   <span class="option-title">
+                    Other Amount ($)
                     <span class="custom-input-wrap">
                       <span class="dollar-sign">$</span>
                       <input id="paymentInput" type="number" min="0.00" max="2675.11" step="0.01" value="" placeholder="0.00" />
                     </span>
-                    Other Amount ($)
                   </span>
                   <div id="errorMessage" class="error-msg" style="display: none;">&#9888; Payment must be at least $0.00</div>
                   <div class="option-msg" id="msgOther"></div>
@@ -151,25 +153,10 @@
                 <div class="result-value" id="yearsOut">—</div>
               </div>
             </div>
-            <p class="disclaimer">* Assumes a 21.38% annual interest rate and no additional charges to the account.</p>
-
             <div id="chartSection" class="chart-section">
               <div class="chart-card">
-                <h3 class="chart-title">Visualizing Lifetime Payment Impact
-                  <span id="chartPayoffBadge" style="margin-left: 8px; color: var(--primary); font-weight: 700; text-transform: none; letter-spacing: normal;"></span>
-                </h3>
-
-                <div id="chartTimeTabs" class="chart-tabs-container" style="display: none;">
-                  <button class="time-tab active" data-months="12">First 12 Months</button>
-                  <button class="time-tab" data-months="36">3 Years (36 Mo)</button>
-                  <button class="time-tab" id="maxTimelineTab" data-months="140">Max Timeline</button>
-                </div>
-
                 <div class="canvas-holder">
                   <canvas id="stackedChart"></canvas>
-                  <!-- Overlay retained in DOM but never shown: the slider is clamped
-                       above the un-payable threshold, so the graph never goes infinite. -->
-                  <div id="chartInfiniteOverlay" style="display:none;"></div>
                 </div>
               </div>
             </div>
@@ -179,11 +166,8 @@
       </div>
 
       <section class="submit-section">
-        <div class="submit-card">
-          <div class="submit-text">
-            <strong>Ready to submit?</strong> Once you click below, your payment will be transfered out of your account.
-          </div>
-          <button id="submitSessionBtn" class="btn-submit">Authorize Payment &amp; Advance Session &rarr;</button>
+        <div class="submit-card submit-card--simple">
+          <button id="submitSessionBtn" class="btn-submit">Submit payment</button>
         </div>
       </section>
 
