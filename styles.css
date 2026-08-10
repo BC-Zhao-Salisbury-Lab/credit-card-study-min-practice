@@ -217,7 +217,10 @@ body {
 .page-body { padding: var(--density-page-pad-top) 0 40px; }
 
 .wrap {
-  max-width: 1160px;
+  /* Wider content area so the page fills the screen like a normal website
+     (instead of a narrow centered column). Caps at 1600px, but uses up to 94%
+     of the viewport on smaller screens. */
+  max-width: min(1600px, 94vw);
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
