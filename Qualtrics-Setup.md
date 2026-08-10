@@ -47,9 +47,8 @@ Create a **Text/Graphic** question in your block. Click the question text, open 
 ```html
 <iframe
   src="https://bc-zhao-salisbury-lab.github.io/credit-card-study-min-practice/?layout=${e://Field/layout}"
-  style="width:100%; height:1000px; border:0; overflow:hidden;"
-  title="Monthly payment tool">
-</iframe>
+  style="display:block; width:100%; height:900px; border:0;"
+  title="Monthly payment tool"></iframe>
 ```
 
 `${e://Field/layout}` inserts the randomly assigned condition, so each participant
