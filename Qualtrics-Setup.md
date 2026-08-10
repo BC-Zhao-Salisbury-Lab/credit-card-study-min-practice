@@ -47,7 +47,7 @@ Create a **Text/Graphic** question in your block. Click the question text, open 
 ```html
 <iframe
   src="https://bc-zhao-salisbury-lab.github.io/credit-card-study-min-practice/?layout=${e://Field/layout}"
-  style="display:block; width:100%; height:900px; border:0;"
+  style="width: 100%; min-width: 100%; border: none; display: block;"
   title="Monthly payment tool"></iframe>
 ```
 
