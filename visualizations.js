@@ -908,7 +908,8 @@ function renderStudyChart(ctx, payment, currentBalance, statementBalance, monthl
  *  No chart title/disclaimer here — those live in the summary cards.
  * ═══════════════════════════════════════════════════════════════════════════ */
 const COLOR_INTEREST_SOFT = "#E9B879";   // softened orange (less visually dominant)
-const COLOR_TOTAL_SINGLE  = "#2E6B4F";   // single-series "total paid" colour (brand green)
+const COLOR_TOTAL_SINGLE  = "#0066CC";   // single-series "total paid" — blue, matching
+                                         // the "principal" blue in the breakdown graph
 
 window.renderFinalGraph = function renderFinalGraph(ctx, payment, statementBalance, monthlyRate, breakdown, existingChart) {
   if (!ctx) return existingChart || null;

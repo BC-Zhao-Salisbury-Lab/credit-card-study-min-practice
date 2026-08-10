@@ -156,7 +156,9 @@ function formatDurationLong(totalMonths) {
     if (result.length > 0) result += " and ";
     result += `${months} month${months > 1 ? "s" : ""}`;
   }
-  return (result || "less than a month") + ` (${totalMonths} months)`;
+  const base = result || "less than a month";
+  // When payoff is within a year, omit the redundant "(N months)" parenthetical.
+  return totalMonths <= 12 ? base : base + ` (${totalMonths} months)`;
 }
 
 // ─── Message Builders (layouts 2–7) ─────────────────────────
@@ -192,8 +194,10 @@ function msgMinimumText(detail) {
 
 // A monthly payment of `v` (the custom "Other Amount" field, or the slider).
 function msgAmountText(v, detail) {
-  if (!isFinite(v) || v <= 0) return "";
-  if (v >= STATEMENT_BALANCE) return msgImmediate("statement", STATEMENT_BALANCE, detail);
+  if (!isFinite(v)) return "";
+  // Paying the whole balance (or more) this month: use the ENTERED amount for the
+  // total/principal, while keeping the "statement balance" wording.
+  if (v >= STATEMENT_BALANCE) return msgImmediate("statement", v, detail);
 
   const m = computePayoffMetrics(v);
   if (!isFinite(m.months)) {
@@ -220,7 +224,7 @@ function updateOtherMessage(v) {
   const el = document.getElementById("msgOther");
   if (!el) return;
   const spec = layoutSpec();
-  if (!spec.choiceMsgs || !isFinite(v) || v <= 0) { el.innerHTML = ""; return; }
+  if (!spec.choiceMsgs || !isFinite(v)) { el.innerHTML = ""; return; }
   el.innerHTML = "• " + msgAmountText(v, spec.choiceDetail);
 }
 
@@ -301,15 +305,32 @@ function setSliderValue(v) {
 // Time to Pay Off). CSS decides which are visible per layout (L6: total+time,
 // L7: all four). Values reflect the current slider payment.
 function updateCards(v) {
-  const m = computePayoffMetrics(v);
-  const inf = !isFinite(m.totalPaid);
-  const principal = inf ? Infinity : (m.totalPaid - m.totalInterest);
+  let months, total, interest, principal, inf = false;
+  if (v >= STATEMENT_BALANCE) {
+    // Paying the whole balance (or more) this month: use the ENTERED amount for
+    // total & principal ($0 interest), paid off in 1 month.
+    months = 1; total = v; interest = 0; principal = v;
+  } else {
+    const m = computePayoffMetrics(v);
+    inf = !isFinite(m.totalPaid);
+    months = m.months; total = m.totalPaid; interest = m.totalInterest;
+    principal = inf ? Infinity : (m.totalPaid - m.totalInterest);
+  }
   const p = document.getElementById("principalOut");
   if (p)           p.textContent           = inf ? "Infinite" : fmt(principal);
-  if (interestOut) interestOut.textContent = inf ? "Infinite" : fmt(m.totalInterest);
-  if (totalOut)    totalOut.textContent    = inf ? "Infinite" : fmt(m.totalPaid);
-  // Time-to-pay-off card shows the month count in parentheses (per study doc).
-  if (yearsOut)    yearsOut.textContent    = inf ? "Never"    : `${formatDurationText(m.months)} (${m.months} months)`;
+  if (interestOut) interestOut.textContent = inf ? "Infinite" : fmt(interest);
+  if (totalOut)    totalOut.textContent    = inf ? "Infinite" : fmt(total);
+  // Time-to-pay-off card: month count in parentheses on a SECOND line, and only
+  // when payoff takes more than 12 months.
+  if (yearsOut) {
+    if (inf) {
+      yearsOut.textContent = "Never";
+    } else if (months <= 12) {
+      yearsOut.textContent = formatDurationText(months);
+    } else {
+      yearsOut.innerHTML = `${formatDurationText(months)}<br><span class="months-paren">(${months} months)</span>`;
+    }
+  }
 }
 
 // Master slider renderer (layouts 4–7). VISUAL ONLY: updates the bubble, the
@@ -585,3 +606,41 @@ document.addEventListener("DOMContentLoaded", () => {
   // the bottom of the page. Set up the layout's messages, tabs, and slider/graph.
   applyLayoutRuntime();
 });
+
+// ─── Iframe auto-resize (Qualtrics embedding) ───────────────
+// When embedded, report the page height to the parent frame so Qualtrics can
+// resize the iframe to fit (no clipping). Fires on load/resize and whenever the
+// content changes size (layout switch, graph render, etc.).
+(function reportHeightToParent() {
+  function postHeight() {
+    try {
+      if (window.parent && window.parent !== window) {
+        var h = Math.ceil(Math.max(
+          document.documentElement ? document.documentElement.scrollHeight : 0,
+          document.body ? document.body.scrollHeight : 0
+        ));
+        window.parent.postMessage({ type: "ccHeight", height: h }, "*");
+      }
+    } catch (e) { /* not embedded / cross-origin blocked: ignore */ }
+  }
+
+  var scheduled = false;
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    var run = function () { scheduled = false; postHeight(); };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run);
+    else window.setTimeout(run, 16);
+  }
+
+  window.addEventListener("load", schedule);
+  window.addEventListener("resize", schedule);
+  document.addEventListener("DOMContentLoaded", schedule);
+  if (window.ResizeObserver && document.body) {
+    try { new ResizeObserver(schedule).observe(document.body); } catch (e) { setInterval(postHeight, 750); }
+  } else {
+    setInterval(postHeight, 750); // fallback for old browsers
+  }
+
+  window.__ccPostHeight = postHeight; // exposed for manual re-posting if needed
+})();

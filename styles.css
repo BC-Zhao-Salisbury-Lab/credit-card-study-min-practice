@@ -1167,6 +1167,18 @@ body.feat-graph .result-card--time .result-value { white-space: normal; }
 /* Slider intro line is shown in every information-display mode (incl. Minimal). */
 body.feat-slider .slider-intro { display: block !important; }
 
+/* First sentence of the slider instruction stands out, styled like the
+   "SELECT YOUR MONTHLY PAYMENT OPTION" legend (uppercase, spaced, semibold). */
+.slider-intro-lead {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Month count sits on its own line in the Time-to-Pay-Off card. */
+body.feat-graph .result-card--time .months-paren { font-weight: 700; }
+
 /* Simple submit bar: just the centered "Submit payment" button. */
 .submit-card--simple { justify-content: center; }
 
