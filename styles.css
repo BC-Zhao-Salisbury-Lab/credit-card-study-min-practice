@@ -1182,8 +1182,17 @@ body.feat-slider .slider-intro { display: block !important; }
 /* Month count sits on its own line in the Time-to-Pay-Off card. */
 body.feat-graph .result-card--time .months-paren { font-weight: 700; }
 
-/* Simple submit bar: just the centered "Submit payment" button. */
-.submit-card--simple { justify-content: center; }
+/* Simple submit bar: just the centered "Submit payment" button + hint. */
+.submit-card--simple { justify-content: center; flex-direction: column; gap: 8px; }
+.submit-hint { font-size: 0.8rem; color: var(--text-muted); margin: 0; text-align: center; }
+
+/* Disabled submit (before a payment option is chosen). */
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--text-muted);
+}
+.btn-submit:disabled:hover { background: var(--text-muted); transform: none; }
 
 /* ── Payment option: amount-first title + message ────────────────────────── */
 /* Option text is black; only the dollar amount is bold (per study document). */

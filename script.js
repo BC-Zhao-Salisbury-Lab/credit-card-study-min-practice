@@ -386,6 +386,39 @@ window.rerenderStudyVisualization = function rerenderStudyVisualization() {
   applyLayoutRuntime();
 };
 
+// ─── Submit gating ──────────────────────────────────────────
+// The participant cannot submit until they have selected one of the four payment
+// options (and, for "Other Amount," entered a value greater than $0).
+const submitSessionBtn = document.getElementById("submitSessionBtn");
+function hasValidChoice() {
+  const checked = document.querySelector('input[name="payOption"]:checked');
+  if (!checked) return false;
+  if (checked.value === 'other') {
+    const val = parseFloat(paymentInput ? paymentInput.value : NaN);
+    return isFinite(val) && val > 0;
+  }
+  return true;
+}
+function updateSubmitState() {
+  if (!submitSessionBtn || submitted) return;
+  const ok = hasValidChoice();
+  submitSessionBtn.disabled = !ok;
+  const hint = document.getElementById("submitHint");
+  if (hint) hint.style.display = ok ? "none" : "";
+  // Tell a Qualtrics parent frame whether a valid option is currently chosen
+  // (used to enable/disable its Next button), and keep the latest choice data
+  // available so advancing via Next still captures the response.
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: "ccChoice",
+        valid: ok,
+        payload: ok ? getSessionData() : null
+      }, "*");
+    }
+  } catch (e) { /* not embedded / blocked: ignore */ }
+}
+
 // ─── Interactive Form Event Listeners ───────────────────────
 // Selecting a radio records the participant's choice. It does NOT drive the
 // slider or graph (those are independent visuals).
@@ -408,6 +441,7 @@ document.querySelectorAll('input[name="payOption"]').forEach(radio => {
       updateOtherMessage(NaN);
       tracking.allChoices.push(Number((+radio.value).toFixed(2)));
     }
+    updateSubmitState();
   });
 });
 
@@ -489,7 +523,7 @@ if (paymentInput) {
       tracking.finalChoice = "other";
     }
 
-    if (isNaN(val) || val < 0) { updateOtherMessage(NaN); return; }
+    if (isNaN(val) || val < 0) { updateOtherMessage(NaN); updateSubmitState(); return; }
     if (val > CURRENT_BALANCE) {
       val = CURRENT_BALANCE;
       paymentInput.value = CURRENT_BALANCE.toFixed(2);
@@ -498,12 +532,14 @@ if (paymentInput) {
     tracking.allChoices.push(Number(val.toFixed(2)));
     tracking.customAmount = Number(val.toFixed(2));
     updateOtherMessage(val);
+    updateSubmitState();
   });
 
   paymentInput.addEventListener('blur', () => {
     const val = parseFloat(paymentInput.value);
     if (!isNaN(val) && val >= 0) paymentInput.value = val.toFixed(2);
     updateOtherMessage(parseFloat(paymentInput.value));
+    updateSubmitState();
   });
 }
 
@@ -564,6 +600,7 @@ function sendToQualtrics(data) {
 
 document.getElementById("submitSessionBtn").addEventListener("click", () => {
   if (submitted) return;
+  if (!hasValidChoice()) { updateSubmitState(); return; }  // must pick an option first
 
   const finalData = getSessionData();
   console.log("Transmission initialized. Final Collected Session Log Data Packet:", finalData);
@@ -608,6 +645,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // No radio is pre-selected: participants must actively enter their choice at
   // the bottom of the page. Set up the layout's messages, tabs, and slider/graph.
   applyLayoutRuntime();
+
+  // Submit stays disabled until a payment option is chosen.
+  updateSubmitState();
 });
 
 // ─── Iframe auto-resize (Qualtrics embedding) ───────────────
