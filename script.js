@@ -571,8 +571,11 @@ document.getElementById("submitSessionBtn").addEventListener("click", () => {
   // 1. Send to Qualtrics parent frame first (before any state mutation)
   sendToQualtrics(finalData);
 
-  // 2. Trigger local JSON download and lock submission
-  downloadSession();
+  // 2. Lock submission. Local JSON download is disabled so data goes ONLY to
+  //    Qualtrics (participants never see a file download). To re-enable the
+  //    local download (e.g. for offline testing), uncomment downloadSession().
+  submitted = true;
+  // downloadSession();
 
   // 3. Update button UI to confirm submission
   const submitBtn = document.getElementById("submitSessionBtn");
