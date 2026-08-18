@@ -328,7 +328,10 @@ function updateCards(v) {
     } else if (months <= 12) {
       yearsOut.textContent = formatDurationText(months);
     } else {
-      yearsOut.innerHTML = `${formatDurationText(months)}<br><span class="months-paren">(${months} months)</span>`;
+      // Duration and "(N months)" are each kept intact; the value wraps between
+      // them only if the card is too narrow (layout 7), otherwise it stays on one
+      // line (layout 6).
+      yearsOut.innerHTML = `<span class="dur">${formatDurationText(months)}</span> <span class="months-paren">(${months} months)</span>`;
     }
   }
 }

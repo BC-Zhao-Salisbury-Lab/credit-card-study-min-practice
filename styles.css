@@ -1179,7 +1179,12 @@ body.feat-slider .slider-intro { display: block !important; }
   color: var(--text-muted);
 }
 
-/* Month count sits on its own line in the Time-to-Pay-Off card. */
+/* Time-to-Pay-Off card: keep the duration and the "(N months)" each as an
+   unbreakable chunk. The value wraps between them only when the card is too
+   narrow (layout 7); otherwise it stays on one line (layout 6). */
+body.feat-graph .result-card--time .result-value { white-space: normal; }
+body.feat-graph .result-card--time .dur,
+body.feat-graph .result-card--time .months-paren { white-space: nowrap; }
 body.feat-graph .result-card--time .months-paren { font-weight: 700; }
 
 /* Simple submit bar: just the centered "Submit payment" button + hint. */
