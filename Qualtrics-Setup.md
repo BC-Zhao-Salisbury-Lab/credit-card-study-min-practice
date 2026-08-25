@@ -95,3 +95,46 @@ browser — participants would see that file download. Qualtrics still gets the 
 through the `postMessage` above, so the download is unnecessary for participants. It
 should be suppressed for them (kept only in `?research=1` mode). This is a one-line
 change on the website side — let me know and I'll make it.
+
+---
+
+## Data collected & embedded-data fields
+
+The payment tool records the participant's decision **and** rich passive
+interaction telemetry. Everything is contained in `cc_raw` (full JSON); the fields
+below are the clean, one-value-per-column summaries. Declare each name in Survey
+Flow so it exports.
+
+**Decision / choice**
+
+| field | meaning |
+|---|---|
+| `layout` | assigned condition (1–7) |
+| `cc_firstChoice` | first option the participant selected |
+| `cc_finalChoice` | option submitted |
+| `cc_customAmount` | "Other Amount" entered (blank if none) |
+| `cc_usedSlider` | Yes/No — did they move the slider |
+| `cc_interactions` | number of choice interactions |
+| `cc_totalTimeSec` | seconds on the tool |
+
+**Interaction telemetry**
+
+| field | meaning |
+|---|---|
+| `cc_mouseClicks` | total mouse clicks |
+| `cc_mouseDistPx` | total cursor travel (pixels) |
+| `cc_keyPresses` | total key presses |
+| `cc_sliderGrabs` | times the slider was grabbed |
+| `cc_scrollDepth` | deepest scroll reached (0–1 of page height) |
+| `cc_firstInteractSec` | seconds from load to first interaction |
+| `cc_timeHiddenSec` | seconds the tab was hidden/inactive |
+| `cc_tabBlurCount` | number of times they switched away from the tab |
+
+**Backup (last column)**
+
+| field | meaning |
+|---|---|
+| `cc_raw` | full JSON record, including the downsampled cursor path (`mousePath`), `clickLog`, `hoverEvents`, `optionHoverCounts`, `sliderValues`, and the focus/blur log |
+
+Use the `saveData()` function in the question JavaScript (see the master JS block)
+to write all of these; it also keeps `cc_raw` as the final column.

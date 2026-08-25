@@ -68,7 +68,23 @@ const tracking = {
   usedSlider: false,
   usedCustomInput: false,
   firstSliderUseTime: null,
-  firstCustomInputTime: null
+  firstCustomInputTime: null,
+
+  // ── Richer interaction telemetry (added for the research team) ───────────
+  mouseClicks: 0,          // total mouse clicks anywhere on the page
+  mouseMoveCount: 0,       // number of mousemove samples (throttled)
+  mousePath: [],           // throttled [t(ms), x, y] samples of cursor movement
+  mouseDistancePx: 0,      // total cursor travel distance in pixels
+  keyPressCount: 0,        // total key presses
+  hoverEvents: [],         // [t(ms), target] when hovering key elements
+  optionHoverCounts: {},   // how many times each payment option was hovered
+  sliderGrabs: 0,          // times the slider was grabbed (pointer/mouse down)
+  scrollDepthMax: 0,       // furthest scroll depth reached (0–1 of page height)
+  scrollCount: 0,          // number of scroll events (throttled)
+  focusBlurEvents: [],     // [t(ms), 'blur'|'focus'] tab visibility changes
+  timeHiddenMs: 0,         // total time the page/tab was hidden
+  firstInteractionTime: null, // ms from load to the very first interaction
+  clickLog: []             // [t(ms), label] of meaningful clicks (options, submit, notches)
 };
 
 // ─── UI Element Selectors ───────────────────────────────────
@@ -577,10 +593,115 @@ function getSessionData() {
     totalTimeSeconds:       Number(totalTimeSeconds.toFixed(2)),
     firstSliderUseSeconds:  tracking.firstSliderUseTime  !== null ? Number((tracking.firstSliderUseTime  / 1000).toFixed(2)) : null,
     firstCustomInputSeconds:tracking.firstCustomInputTime !== null ? Number((tracking.firstCustomInputTime / 1000).toFixed(2)) : null,
+
+    // ── Interaction telemetry ────────────────────────────────────────────
+    mouseClicks:            tracking.mouseClicks,
+    mouseMoveSamples:       tracking.mouseMoveCount,
+    mouseDistancePx:        tracking.mouseDistancePx,
+    keyPresses:             tracking.keyPressCount,
+    sliderGrabs:            tracking.sliderGrabs,
+    scrollDepthMax:         tracking.scrollDepthMax,
+    scrollCount:            tracking.scrollCount,
+    optionHoverCounts:      tracking.optionHoverCounts,
+    firstInteractionSeconds:tracking.firstInteractionTime !== null ? Number((tracking.firstInteractionTime / 1000).toFixed(2)) : null,
+    timeHiddenSeconds:      Number((tracking.timeHiddenMs / 1000).toFixed(2)),
+    tabBlurCount:           tracking.focusBlurEvents.filter(function (e) { return e[1] === 'blur'; }).length,
+    // Detailed traces (downsampled; live in the raw record only)
+    mousePath:              tracking.mousePath,
+    clickLog:               tracking.clickLog,
+    hoverEvents:            tracking.hoverEvents,
+    focusBlurEvents:        tracking.focusBlurEvents,
+
     startTimestamp:         new Date(tracking.startTime).toISOString(),
     endTimestamp:           new Date(tracking.endTime).toISOString()
   };
 }
+
+// ─── Interaction Telemetry ──────────────────────────────────
+// Passive listeners that enrich the research log with mouse / keyboard / scroll
+// / attention data. Sampling is throttled and capped so the payload stays small.
+(function setupTelemetry() {
+  function now() { return Date.now() - tracking.startTime; }
+  function markFirst() { if (tracking.firstInteractionTime === null) tracking.firstInteractionTime = now(); }
+
+  // Clicks — total count + a light log of meaningful targets.
+  document.addEventListener("click", function (e) {
+    tracking.mouseClicks++;
+    markFirst();
+    var t = e.target, label = null;
+    var row = t.closest ? t.closest(".option-row") : null;
+    if (row) {
+      var radio = row.querySelector('input[name="payOption"]');
+      label = "option:" + (radio ? radio.value : "?");
+    } else if (t.closest && t.closest("#submitSessionBtn")) label = "submit";
+    else if (t.closest && t.closest(".slider-notch-labels")) label = "notch";
+    else if (t.id === "paymentRange" || (t.closest && t.closest("#sliderSection"))) label = "slider";
+    if (label && tracking.clickLog.length < 200) tracking.clickLog.push([now(), label]);
+  }, true);
+
+  // Mouse movement — throttled samples + total travel distance.
+  var lastMove = -1000, lastX = null, lastY = null;
+  document.addEventListener("mousemove", function (e) {
+    var t = now();
+    if (lastX !== null) {
+      var dx = e.clientX - lastX, dy = e.clientY - lastY;
+      tracking.mouseDistancePx += Math.round(Math.sqrt(dx * dx + dy * dy));
+    }
+    lastX = e.clientX; lastY = e.clientY;
+    if (t - lastMove >= 150) {
+      lastMove = t;
+      tracking.mouseMoveCount++;
+      markFirst();
+      if (tracking.mousePath.length < 600) tracking.mousePath.push([t, e.clientX, e.clientY]);
+    }
+  }, true);
+
+  // Keyboard.
+  document.addEventListener("keydown", function () { tracking.keyPressCount++; markFirst(); }, true);
+
+  // Hover on each payment option (count + timestamped events).
+  document.querySelectorAll(".option-row").forEach(function (row) {
+    var radio = row.querySelector('input[name="payOption"]');
+    var key = radio ? radio.value : "option";
+    row.addEventListener("mouseenter", function () {
+      tracking.optionHoverCounts[key] = (tracking.optionHoverCounts[key] || 0) + 1;
+      if (tracking.hoverEvents.length < 300) tracking.hoverEvents.push([now(), "option:" + key]);
+    });
+  });
+
+  // Slider grabs (pointer/mouse/touch down on the range input).
+  var rangeEl = document.getElementById("paymentRange");
+  if (rangeEl) {
+    ["mousedown", "touchstart", "pointerdown"].forEach(function (ev) {
+      rangeEl.addEventListener(ev, function () { tracking.sliderGrabs++; markFirst(); }, { passive: true });
+    });
+  }
+
+  // Scroll — throttled; track deepest scroll reached and a scroll-event count.
+  var lastScroll = -1000;
+  window.addEventListener("scroll", function () {
+    var t = now();
+    if (t - lastScroll < 150) return;
+    lastScroll = t;
+    tracking.scrollCount++;
+    var doc = document.documentElement;
+    var denom = (doc.scrollHeight - doc.clientHeight) || 1;
+    var depth = Math.max(0, Math.min(1, (window.scrollY || doc.scrollTop || 0) / denom));
+    if (depth > tracking.scrollDepthMax) tracking.scrollDepthMax = Number(depth.toFixed(3));
+  }, { passive: true });
+
+  // Attention — tab hide/show and total time hidden.
+  var hiddenAt = null;
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      hiddenAt = Date.now();
+      if (tracking.focusBlurEvents.length < 100) tracking.focusBlurEvents.push([now(), "blur"]);
+    } else {
+      if (hiddenAt) { tracking.timeHiddenMs += (Date.now() - hiddenAt); hiddenAt = null; }
+      if (tracking.focusBlurEvents.length < 100) tracking.focusBlurEvents.push([now(), "focus"]);
+    }
+  });
+})();
 
 function downloadSession() {
   if (submitted) return;
