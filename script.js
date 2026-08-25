@@ -543,10 +543,7 @@ if (paymentInput) {
     }
 
     if (isNaN(val) || val < 0) { updateOtherMessage(NaN); updateSubmitState(); return; }
-    if (val > CURRENT_BALANCE) {
-      val = CURRENT_BALANCE;
-      paymentInput.value = CURRENT_BALANCE.toFixed(2);
-    }
+    // "Other Amount" accepts any value ≥ 0 — no upper cap.
 
     tracking.allChoices.push(Number(val.toFixed(2)));
     tracking.customAmount = Number(val.toFixed(2));
