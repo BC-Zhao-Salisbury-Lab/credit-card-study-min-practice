@@ -2,6 +2,7 @@ Group,Variable,Description,Type,Possible Values,Source,Condition-Dependent
 Meta / identity,cc_schemaVersion,Version of the data schema the record was produced with (for reproducibility across waves),text,e.g. cc-2.0,Site,No
 Meta / identity,cc_sessionId,Unique id for this payment-tool session (timestamp + random); de-duplicate and match a row to its cc_raw. Qualtrics ResponseID is the primary key,text,e.g. cc-lz4k9-a1b2c3,Site,No
 Experimental condition,layout,Condition code assigned by the Qualtrics randomizer and echoed by the page; THE primary condition variable,integer,1-7,Qualtrics randomizer,-
+Experimental condition,cc_conditionCode,Numeric condition code reported back by the site (equals layout; explicit duplicate for safety),integer,1-7,Site,-
 Experimental condition,cc_conditionLabel,Human-readable description of the condition,text,e.g. Slider + graph - total cost & payoff time,Site,-
 Experimental condition,cc_infoContent,Information-content factor: what payoff information was shown,categorical,none / total / breakdown,Site,-
 Experimental condition,cc_visualDesign,Visual-design factor: how the information was presented,categorical,baseline / text / slider / slider+graph,Site,-
@@ -38,19 +39,35 @@ Mouse / keyboard,cc_mouseDistancePx,Total cursor travel distance in pixels,integ
 Mouse / keyboard,cc_keyPresses,Total key presses,integer,>= 0,Site,No
 Mouse / keyboard,cc_sliderGrabs,Times the slider handle was grabbed,integer,>= 0,Site,Yes (4-7)
 Mouse / keyboard,cc_clickLog,Ordered click timeline with timing pipe-separated timeMs:label,text (list),e.g. 3200ms:option:43.00 | 8100ms:submit,Site,No
+Mouse / keyboard,cc_mousePath,Down-sampled cursor trail pipe-separated timeMs,x,y (<=600 points),text (list),e.g. 45ms,10,10 | 195ms,60,50,Site,No
 Attention / scrolling,cc_scrollDepthMax,Deepest scroll reached as a fraction of page height (1 = bottom),number,0-1,Site,No
 Attention / scrolling,cc_scrollCount,Number of scroll events (throttled),integer,>= 0,Site,No
 Attention / scrolling,cc_timeHiddenSeconds,Total time the tab was hidden/inactive (distraction),number,>= 0,Site,No
 Attention / scrolling,cc_tabBlurCount,Times the participant switched away from the survey tab,integer,>= 0,Site,No
+Attention / scrolling,cc_focusBlurEvents,Timed sequence of tab hide/return pipe-separated timeMs:blur|focus,text (list),e.g. 5200ms:blur | 9100ms:focus,Site,No
 Hover per option,cc_hoverStatement,Times the Statement Balance ($2\,136.90) option was hovered,integer,>= 0,Site,No
 Hover per option,cc_hoverCurrent,Times the Current Balance ($2\,675.11) option was hovered,integer,>= 0,Site,No
 Hover per option,cc_hoverMinimum,Times the Minimum Payment ($43.00) option was hovered,integer,>= 0,Site,No
 Hover per option,cc_hoverOther,Times the Other Amount option was hovered,integer,>= 0,Site,No
+Hover per option,cc_hoverEvents,Timed sequence of option hovers pipe-separated timeMs:option,text (list),e.g. 2100ms:option:43.00,Site,No
 Data quality,cc_dataQualityFlag,Overall quality tag: OK or a semicolon list of flags,text,OK / NO_CHOICE / NO_INTERACTION / VERY_FAST / NEVER_PAYOFF,Site,No
 Data quality,cc_flagNoChoice,No payment option was submitted,categorical,Yes / No,Site,No
 Data quality,cc_flagNoInteraction,Zero logged interactions,categorical,Yes / No,Site,No
 Data quality,cc_flagVeryFast,Completed in under 3 seconds (implausibly fast),categorical,Yes / No,Site,No
 Data quality,cc_flagNeverPayoff,Chose a custom amount too low to ever pay off the balance,categorical,Yes / No,Site,No
+Internal / legacy,cc_conditionVersion,Legacy internal copy of the condition code (equals layout); kept for completeness,integer,1-7,Site,No
+Internal / legacy,cc_strategyIndex,Internal chart-type index (a researcher display setting; not participant behavior),integer,1-9,Site,No
 Timestamps,cc_startTimestamp,ISO datetime the payment page loaded,datetime (ISO 8601),e.g. 2026-08-27T14:03:22.104Z,Site,No
 Timestamps,cc_endTimestamp,ISO datetime of submit,datetime (ISO 8601),e.g. 2026-08-27T14:04:10.882Z,Site,No
-Backup,cc_raw,Complete JSON record: every field above plus trace arrays (mousePath hoverEvents focusBlurEvents) and internal fields (conditionVersion strategyIndex); keep as the last column,text (JSON),JSON object,Site,No
+Backup,cc_raw,Complete JSON record mirroring every cc_ column above; keep as the last column as a fallback,text (JSON),JSON object,Site,No
+Qualtrics standard,ResponseId,Qualtrics unique response id (primary key for merging),text,e.g. R_abc123,Qualtrics,No
+Qualtrics standard,StartDate,When the participant began the whole survey,datetime,Qualtrics local time,Qualtrics,No
+Qualtrics standard,EndDate,When the participant finished the whole survey,datetime,Qualtrics local time,Qualtrics,No
+Qualtrics standard,RecordedDate,When the response was recorded,datetime,Qualtrics local time,Qualtrics,No
+Qualtrics standard,Duration (in seconds),Total survey duration across all pages,integer,>= 0,Qualtrics,No
+Qualtrics standard,Progress,Percent of survey completed,integer,0-100,Qualtrics,No
+Qualtrics standard,Finished,Whether the survey was completed,categorical,True / False,Qualtrics,No
+Qualtrics standard,Status,Response type,categorical,IP Address / Survey Preview / Spam etc.,Qualtrics,No
+Qualtrics standard,DistributionChannel,How the participant reached the survey,text,anonymous / preview etc.,Qualtrics,No
+Qualtrics standard,UserLanguage,Survey language,text,e.g. EN,Qualtrics,No
+Survey questions,(your rating questions),Post-task rating items you built in Qualtrics (e.g. right-decision 1-7; difficulty/pleasant/engaging). Named by their Qualtrics question IDs; label them in your survey. Not produced by the payment tool.,varies,per your survey,Qualtrics,No

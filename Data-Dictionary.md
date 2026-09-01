@@ -132,13 +132,15 @@ function saveData(p) {
     function yn(b) { return b ? "Yes" : "No"; }
     function n(v) { return (v == null ? "" : v); }              // preserve missing as blank
     function list(a) { return (a || []).join(" | "); }
-    function clicks(a) { return (a || []).map(function (x) { return x[0] + "ms:" + x[1]; }).join(" | "); }
+    function stamps(a) { return (a || []).map(function (x) { return x[0] + "ms:" + x[1]; }).join(" | "); }
+    function triples(a) { return (a || []).map(function (x) { return x.join(","); }).join(" | "); }
 
     // Meta / identity
     Q.setEmbeddedData("cc_schemaVersion", p.schemaVersion);
     Q.setEmbeddedData("cc_sessionId", p.sessionId);
     // Experimental condition (explicit code + label + factors)
     Q.setEmbeddedData("layout", p.layout);
+    Q.setEmbeddedData("cc_conditionCode", p.conditionCode);
     Q.setEmbeddedData("cc_conditionLabel", p.conditionLabel || "");
     Q.setEmbeddedData("cc_infoContent", p.infoContent || "");
     Q.setEmbeddedData("cc_visualDesign", p.visualDesign || "");
@@ -180,45 +182,55 @@ function saveData(p) {
     Q.setEmbeddedData("cc_mouseDistancePx", p.mouseDistancePx);
     Q.setEmbeddedData("cc_keyPresses", p.keyPresses);
     Q.setEmbeddedData("cc_sliderGrabs", p.sliderGrabs);
-    Q.setEmbeddedData("cc_clickLog", clicks(p.clickLog));
+    Q.setEmbeddedData("cc_clickLog", stamps(p.clickLog));
+    Q.setEmbeddedData("cc_mousePath", triples(p.mousePath));
     // Attention / scroll
     Q.setEmbeddedData("cc_scrollDepthMax", p.scrollDepthMax);
     Q.setEmbeddedData("cc_scrollCount", p.scrollCount);
     Q.setEmbeddedData("cc_timeHiddenSeconds", p.timeHiddenSeconds);
     Q.setEmbeddedData("cc_tabBlurCount", p.tabBlurCount);
+    Q.setEmbeddedData("cc_focusBlurEvents", stamps(p.focusBlurEvents));
     // Hover per option
     Q.setEmbeddedData("cc_hoverStatement", hov["2136.90"] || 0);
     Q.setEmbeddedData("cc_hoverCurrent", hov["2675.11"] || 0);
     Q.setEmbeddedData("cc_hoverMinimum", hov["43.00"] || 0);
     Q.setEmbeddedData("cc_hoverOther", hov["other"] || 0);
+    Q.setEmbeddedData("cc_hoverEvents", stamps(p.hoverEvents));
     // Data quality
     Q.setEmbeddedData("cc_dataQualityFlag", p.dataQualityFlag);
     Q.setEmbeddedData("cc_flagNoChoice", yn(p.flagNoChoice));
     Q.setEmbeddedData("cc_flagNoInteraction", yn(p.flagNoInteraction));
     Q.setEmbeddedData("cc_flagVeryFast", yn(p.flagVeryFast));
     Q.setEmbeddedData("cc_flagNeverPayoff", yn(p.flagNeverPayoff));
+    // Internal / legacy (kept for completeness)
+    Q.setEmbeddedData("cc_conditionVersion", n(p.conditionVersion));
+    Q.setEmbeddedData("cc_strategyIndex", n(p.strategyIndex));
     // Timestamps
     Q.setEmbeddedData("cc_startTimestamp", p.startTimestamp);
     Q.setEmbeddedData("cc_endTimestamp", p.endTimestamp);
-    // Full backup (last column)
+    // Full backup (last column) — mirrors everything above, nothing extra hidden
     Q.setEmbeddedData("cc_raw", JSON.stringify(p));
 }
 ```
+
+Every payload field is now its own column; `cc_raw` is a mirror backup, not the
+only home of any variable.
 
 ### B. Declare these fields in Survey Flow, in this order (= export column order)
 
 ```
 cc_schemaVersion, cc_sessionId,
-layout, cc_conditionLabel, cc_infoContent, cc_visualDesign,
+layout, cc_conditionCode, cc_conditionLabel, cc_infoContent, cc_visualDesign,
 cc_firstChoice, cc_firstChoiceLabel, cc_finalChoice, cc_finalChoiceLabel, cc_customAmount, cc_allChoices,
 cc_finalMonthlyPayment, cc_finalPayoffMonths, cc_finalTotalPaid, cc_finalInterest, cc_finalPrincipal,
 cc_apr, cc_statementBalance, cc_currentBalance, cc_minPayment,
 cc_interactionCount, cc_usedSlider, cc_usedCustomInput, cc_sliderStops, cc_sliderValues, cc_sliderMin, cc_sliderMax, cc_sliderLast,
 cc_totalTimeSeconds, cc_firstInteractionSeconds, cc_firstSliderUseSeconds, cc_firstCustomInputSeconds,
-cc_mouseClicks, cc_mouseMoveSamples, cc_mouseDistancePx, cc_keyPresses, cc_sliderGrabs, cc_clickLog,
-cc_scrollDepthMax, cc_scrollCount, cc_timeHiddenSeconds, cc_tabBlurCount,
-cc_hoverStatement, cc_hoverCurrent, cc_hoverMinimum, cc_hoverOther,
+cc_mouseClicks, cc_mouseMoveSamples, cc_mouseDistancePx, cc_keyPresses, cc_sliderGrabs, cc_clickLog, cc_mousePath,
+cc_scrollDepthMax, cc_scrollCount, cc_timeHiddenSeconds, cc_tabBlurCount, cc_focusBlurEvents,
+cc_hoverStatement, cc_hoverCurrent, cc_hoverMinimum, cc_hoverOther, cc_hoverEvents,
 cc_dataQualityFlag, cc_flagNoChoice, cc_flagNoInteraction, cc_flagVeryFast, cc_flagNeverPayoff,
+cc_conditionVersion, cc_strategyIndex,
 cc_startTimestamp, cc_endTimestamp,
 cc_raw
 ```

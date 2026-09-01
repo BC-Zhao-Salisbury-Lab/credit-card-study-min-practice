@@ -1,0 +1,72 @@
+field,label
+cc_schemaVersion,Data schema version
+cc_sessionId,Session ID
+layout,Condition (code 1-7)
+cc_conditionCode,Condition code
+cc_conditionLabel,Condition (label)
+cc_infoContent,Info content (none/total/breakdown)
+cc_visualDesign,Visual design
+cc_firstChoice,First choice (value)
+cc_firstChoiceLabel,First choice (label)
+cc_finalChoice,Final choice (value)
+cc_finalChoiceLabel,Final choice (label)
+cc_customAmount,Custom amount ($)
+cc_allChoices,All choices (sequence)
+cc_finalMonthlyPayment,Final: monthly payment ($)
+cc_finalPayoffMonths,Final: payoff months
+cc_finalTotalPaid,Final: total paid ($)
+cc_finalInterest,Final: interest ($)
+cc_finalPrincipal,Final: principal ($)
+cc_apr,APR (assumption)
+cc_statementBalance,Statement balance (assumption)
+cc_currentBalance,Current balance (assumption)
+cc_minPayment,Minimum payment (assumption)
+cc_interactionCount,Interaction count
+cc_usedSlider,Used slider? (Yes/No)
+cc_usedCustomInput,Used custom input? (Yes/No)
+cc_sliderStops,Slider stops (count)
+cc_sliderValues,Slider values (sequence)
+cc_sliderMin,Slider min explored ($)
+cc_sliderMax,Slider max explored ($)
+cc_sliderLast,Slider last value ($)
+cc_totalTimeSeconds,Total time (sec)
+cc_firstInteractionSeconds,Time to first interaction (sec)
+cc_firstSliderUseSeconds,Time to first slider use (sec)
+cc_firstCustomInputSeconds,Time to first custom input (sec)
+cc_mouseClicks,Mouse clicks
+cc_mouseMoveSamples,Mouse-move samples
+cc_mouseDistancePx,Mouse distance (px)
+cc_keyPresses,Key presses
+cc_sliderGrabs,Slider grabs
+cc_clickLog,Click log (timeline)
+cc_mousePath,Mouse path (trail)
+cc_scrollDepthMax,Max scroll depth (0-1)
+cc_scrollCount,Scroll events
+cc_timeHiddenSeconds,Time tab hidden (sec)
+cc_tabBlurCount,Tab switch-aways
+cc_focusBlurEvents,Focus/blur events
+cc_hoverStatement,Hovers: Statement Balance
+cc_hoverCurrent,Hovers: Current Balance
+cc_hoverMinimum,Hovers: Minimum Payment
+cc_hoverOther,Hovers: Other Amount
+cc_hoverEvents,Hover events (timeline)
+cc_dataQualityFlag,Data quality flag
+cc_flagNoChoice,Flag: no choice submitted
+cc_flagNoInteraction,Flag: no interaction
+cc_flagVeryFast,Flag: very fast (<3s)
+cc_flagNeverPayoff,Flag: never pays off
+cc_conditionVersion,Condition version (internal)
+cc_strategyIndex,Chart strategy index (internal)
+cc_startTimestamp,Payment task start
+cc_endTimestamp,Payment task end (submit)
+cc_raw,Raw JSON record (backup)
+ResponseId,Qualtrics response ID
+StartDate,Survey start
+EndDate,Survey end
+RecordedDate,Recorded date
+Duration (in seconds),Survey duration (sec)
+Progress,Progress (%)
+Finished,Finished?
+Status,Response type
+DistributionChannel,Distribution channel
+UserLanguage,Survey language
