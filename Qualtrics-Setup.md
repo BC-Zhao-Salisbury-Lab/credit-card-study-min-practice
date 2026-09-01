@@ -98,7 +98,38 @@ change on the website side — let me know and I'll make it.
 
 ---
 
-## Data collected & embedded-data fields
+## Data collected & embedded-data fields — FULL organized set
+
+Declare these in Survey Flow **in this order** (this is the export column order).
+Every column is a clean, one-value cell; `cc_raw` (last) holds the full JSON,
+including the trace arrays (`mousePath`, `clickLog`, `hoverEvents`, `focusBlurEvents`,
+`sliderValues`, `allChoices`).
+
+```
+cc_sessionId, layout,
+cc_firstChoice, cc_finalChoice, cc_customAmount,
+cc_usedSlider, cc_usedCustomInput, cc_interactions, cc_sliderStops, cc_sliderMin, cc_sliderMax, cc_sliderLast,
+cc_totalTimeSec, cc_firstInteractSec, cc_firstSliderSec, cc_firstCustomSec,
+cc_mouseClicks, cc_mouseMoveSamples, cc_mouseDistPx, cc_keyPresses, cc_sliderGrabs,
+cc_scrollDepth, cc_scrollCount, cc_timeHiddenSec, cc_tabBlurCount,
+cc_hoverStatement, cc_hoverCurrent, cc_hoverMinimum, cc_hoverOther,
+cc_startTime, cc_endTime,
+cc_raw
+```
+
+| group | columns |
+|---|---|
+| Identity / condition | `cc_sessionId`, `layout` |
+| Decision | `cc_firstChoice`, `cc_finalChoice`, `cc_customAmount` |
+| Tool usage | `cc_usedSlider`, `cc_usedCustomInput`, `cc_interactions`, `cc_sliderStops`, `cc_sliderMin`, `cc_sliderMax`, `cc_sliderLast` |
+| Timing (sec) | `cc_totalTimeSec`, `cc_firstInteractSec`, `cc_firstSliderSec`, `cc_firstCustomSec` |
+| Mouse / keyboard | `cc_mouseClicks`, `cc_mouseMoveSamples`, `cc_mouseDistPx`, `cc_keyPresses`, `cc_sliderGrabs` |
+| Scroll / attention | `cc_scrollDepth`, `cc_scrollCount`, `cc_timeHiddenSec`, `cc_tabBlurCount` |
+| Hover per option | `cc_hoverStatement`, `cc_hoverCurrent`, `cc_hoverMinimum`, `cc_hoverOther` |
+| Timestamps | `cc_startTime`, `cc_endTime` |
+| Backup | `cc_raw` |
+
+## (Legacy) minimal field set
 
 The payment tool records the participant's decision **and** rich passive
 interaction telemetry. Everything is contained in `cc_raw` (full JSON); the fields

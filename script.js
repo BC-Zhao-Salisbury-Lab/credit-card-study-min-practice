@@ -584,6 +584,11 @@ function getSessionData() {
     finalChoiceLabel:       resolvePaymentLabel(tracking.finalChoice),
     allChoices:             tracking.allChoices,
     sliderValues:           tracking.sliderValues,
+    // Slider-exploration summaries (derived from sliderValues)
+    sliderStops:            tracking.sliderValues.length,
+    sliderMin:              tracking.sliderValues.length ? Math.min.apply(null, tracking.sliderValues) : null,
+    sliderMax:              tracking.sliderValues.length ? Math.max.apply(null, tracking.sliderValues) : null,
+    sliderLast:             tracking.sliderValues.length ? tracking.sliderValues[tracking.sliderValues.length - 1] : null,
     customAmount:           tracking.customAmount,
     usedSlider:             tracking.usedSlider,
     usedCustomInput:        tracking.usedCustomInput,
