@@ -1403,3 +1403,43 @@ body.feat-graph .result-card--time .months-paren { font-weight: 700; }
   }
   body.feat-slider .account-summary { max-width: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PHONE-ONLY behaviour. Everything here is gated on the `is-phone` /
+   `is-phone-portrait` body classes, which JS only adds on touch phones — so the
+   desktop view is never affected, at any window size.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Rotate-to-landscape gate. Kept in normal flow (not fixed) so the embedding
+   iframe sizes to it; shown only when a phone is held in portrait. */
+.rotate-overlay {
+  display: none;
+  width: 100%;
+  min-height: 340px;
+  box-sizing: border-box;
+  padding: 40px 24px;
+  text-align: center;
+  background: var(--primary-dark);
+  color: #fff;
+}
+.rotate-overlay .rotate-inner { max-width: 340px; margin: 0 auto; }
+.rotate-overlay .rotate-icon {
+  font-size: 3rem; display: inline-block; line-height: 1;
+  animation: ccRotateHint 1.6s ease-in-out infinite;
+}
+.rotate-overlay .rotate-title { font-size: 1.2rem; font-weight: 700; margin: 14px 0 6px; }
+.rotate-overlay .rotate-sub   { font-size: 0.95rem; opacity: 0.9; margin: 0; line-height: 1.5; }
+@keyframes ccRotateHint { 0%, 60%, 100% { transform: rotate(0deg); } 30% { transform: rotate(90deg); } }
+
+/* Portrait phone: show the rotate prompt, hide the tool underneath it. */
+body.is-phone-portrait .rotate-overlay { display: flex; align-items: center; justify-content: center; }
+body.is-phone-portrait .navbar,
+body.is-phone-portrait .hero-bar,
+body.is-phone-portrait .page-body,
+body.is-phone-portrait .site-footer { display: none !important; }
+
+/* Landscape phone content order: slider (already above), then GRAPH, then the
+   final payment options. Only conditions 6 & 7 have a graph. Single column. */
+body.is-phone .two-col-row { grid-template-columns: 1fr !important; }
+body.is-phone.feat-graph .col-right { order: 1; }   /* graph first */
+body.is-phone.feat-graph .col-left  { order: 2; }   /* payment options after */

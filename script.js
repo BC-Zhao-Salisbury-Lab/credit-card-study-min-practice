@@ -893,3 +893,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.__ccPostHeight = postHeight; // exposed for manual re-posting if needed
 })();
+
+// ─── Phone landscape enforcement + phone content order ──────
+// Phones only: force a landscape (horizontal) experience and, in the graph
+// conditions, order the content slider → graph → options. Desktop is never
+// touched — the is-phone/is-phone-portrait classes are added only for touch
+// phones, so no `?research`/computer view is affected.
+(function phoneSupport() {
+  function isPhone() {
+    var coarse = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+                 (navigator.maxTouchPoints || 0) > 0;
+    var small = Math.min(screen.width || 9999, screen.height || 9999) <= 820;
+    return coarse && small;
+  }
+  function isPortrait() {
+    if (screen.orientation && typeof screen.orientation.angle === 'number') {
+      return screen.orientation.angle === 0 || screen.orientation.angle === 180;
+    }
+    if (typeof window.orientation === 'number') {
+      return window.orientation === 0 || window.orientation === 180;
+    }
+    return (window.innerHeight || 0) >= (window.innerWidth || 0); // last resort
+  }
+  function apply() {
+    if (!document.body) return;
+    var phone = isPhone();
+    document.body.classList.toggle('is-phone', phone);
+    document.body.classList.toggle('is-phone-portrait', phone && isPortrait());
+    // Best-effort orientation lock where supported (Android/Chrome); harmless
+    // and silently ignored elsewhere (e.g. iOS Safari doesn't allow it).
+    if (phone) {
+      try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {}); } catch (e) {}
+    }
+    if (typeof window.__ccPostHeight === 'function') window.__ccPostHeight();
+  }
+  window.addEventListener('orientationchange', function () { setTimeout(apply, 120); });
+  window.addEventListener('resize', apply);
+  document.addEventListener('DOMContentLoaded', apply);
+  apply();
+})();

@@ -14,6 +14,16 @@
 </head>
 <body>
 
+  <!-- Phones only: shown when the device is held in portrait; asks the user to
+       rotate to landscape. Never shown on desktop (gated by the is-phone check). -->
+  <div id="rotateOverlay" class="rotate-overlay" role="alertdialog" aria-label="Rotate your device">
+    <div class="rotate-inner">
+      <div class="rotate-icon">⟳</div>
+      <p class="rotate-title">Please rotate your phone</p>
+      <p class="rotate-sub">Turn your device sideways (landscape) to continue.</p>
+    </div>
+  </div>
+
   <nav class="navbar">
       <div class="nav-brand">
         <i class="fa-solid fa-piggy-bank" id="logo"></i>
