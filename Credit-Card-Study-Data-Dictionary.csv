@@ -1,0 +1,56 @@
+Group,Variable,Description,Type,Possible Values,Source,Condition-Dependent
+Meta / identity,cc_schemaVersion,Version of the data schema the record was produced with (for reproducibility across waves),text,e.g. cc-2.0,Site,No
+Meta / identity,cc_sessionId,Unique id for this payment-tool session (timestamp + random); de-duplicate and match a row to its cc_raw. Qualtrics ResponseID is the primary key,text,e.g. cc-lz4k9-a1b2c3,Site,No
+Experimental condition,layout,Condition code assigned by the Qualtrics randomizer and echoed by the page; THE primary condition variable,integer,1-7,Qualtrics randomizer,-
+Experimental condition,cc_conditionLabel,Human-readable description of the condition,text,e.g. Slider + graph - total cost & payoff time,Site,-
+Experimental condition,cc_infoContent,Information-content factor: what payoff information was shown,categorical,none / total / breakdown,Site,-
+Experimental condition,cc_visualDesign,Visual-design factor: how the information was presented,categorical,baseline / text / slider / slider+graph,Site,-
+Decision (raw inputs),cc_firstChoice,Raw value of the FIRST option selected,categorical,2136.90 / 2675.11 / 43.00 / other / (blank),Site,No
+Decision (raw inputs),cc_firstChoiceLabel,Readable label of cc_firstChoice,text,e.g. Minimum Payment ($43.00),Site,No
+Decision (raw inputs),cc_finalChoice,Raw value of the option SUBMITTED; primary outcome,categorical,2136.90 / 2675.11 / 43.00 / other / (blank),Site,No
+Decision (raw inputs),cc_finalChoiceLabel,Readable label of cc_finalChoice,text,e.g. Statement Balance ($2\,136.90),Site,No
+Decision (raw inputs),cc_customAmount,Dollar amount typed into Other Amount (blank if not used),number,>= 0 or blank,Site,No
+Decision (raw inputs),cc_allChoices,Ordered sequence of every amount touched (radio + slider stops) pipe-separated,text (list),e.g. 43.00 | 500.00 | 2136.90,Site,No
+Calculated outcome,cc_finalMonthlyPayment,Monthly payment implied by the final choice ($43 for minimum; lump amount otherwise),number,>= 0 or blank,Site (calc),No
+Calculated outcome,cc_finalPayoffMonths,Months to clear the statement balance under the final choice (blank if never / no choice),integer,>= 1 or blank,Site (calc),No
+Calculated outcome,cc_finalTotalPaid,Total dollars paid over the payoff period for the final choice,number,>= 0 or blank,Site (calc),No
+Calculated outcome,cc_finalInterest,Total interest dollars for the final choice,number,>= 0 or blank,Site (calc),No
+Calculated outcome,cc_finalPrincipal,Total principal dollars for the final choice,number,>= 0 or blank,Site (calc),No
+Task assumptions,cc_apr,Annual interest rate used by the tool,number,0.2138 (=21.38%),Site,No
+Task assumptions,cc_statementBalance,Statement balance shown,number,2136.90,Site,No
+Task assumptions,cc_currentBalance,Current balance shown,number,2675.11,Site,No
+Task assumptions,cc_minPayment,Minimum payment shown,number,43,Site,No
+Engagement / tool usage,cc_interactionCount,Count of logged decision interactions (radio changes + custom-input edits + slider stops),integer,>= 0,Site,No
+Engagement / tool usage,cc_usedSlider,Did the participant move the slider at all,categorical,Yes / No,Site,Yes (slider in 4-7)
+Engagement / tool usage,cc_usedCustomInput,Did the participant type into Other Amount,categorical,Yes / No,Site,No
+Engagement / tool usage,cc_sliderStops,Number of deliberate slider stops (length of cc_sliderValues),integer,>= 0,Site,Yes (4-7)
+Engagement / tool usage,cc_sliderValues,Every slider value where they paused/released in order pipe-separated,text (list),e.g. 500 | 1200,Site,Yes (4-7)
+Engagement / tool usage,cc_sliderMin,Lowest slider value explored,number,>= 0 or blank,Site,Yes (4-7)
+Engagement / tool usage,cc_sliderMax,Highest slider value explored,number,>= 0 or blank,Site,Yes (4-7)
+Engagement / tool usage,cc_sliderLast,Last slider value before submit,number,>= 0 or blank,Site,Yes (4-7)
+Timing (seconds),cc_totalTimeSeconds,Total time on the payment page load to submit,number,>= 0,Site,No
+Timing (seconds),cc_firstInteractionSeconds,Time to the first action of any kind (hesitation),number,>= 0 or blank,Site,No
+Timing (seconds),cc_firstSliderUseSeconds,Time until first slider use (blank if never),number,>= 0 or blank,Site,Yes (4-7)
+Timing (seconds),cc_firstCustomInputSeconds,Time until first Other Amount keystroke (blank if never),number,>= 0 or blank,Site,No
+Mouse / keyboard,cc_mouseClicks,Total mouse clicks anywhere on the page,integer,>= 0,Site,No
+Mouse / keyboard,cc_mouseMoveSamples,Cursor-position samples (~1 per 150 ms of movement); proxy for time in motion,integer,>= 0,Site,No
+Mouse / keyboard,cc_mouseDistancePx,Total cursor travel distance in pixels,integer,>= 0,Site,No
+Mouse / keyboard,cc_keyPresses,Total key presses,integer,>= 0,Site,No
+Mouse / keyboard,cc_sliderGrabs,Times the slider handle was grabbed,integer,>= 0,Site,Yes (4-7)
+Mouse / keyboard,cc_clickLog,Ordered click timeline with timing pipe-separated timeMs:label,text (list),e.g. 3200ms:option:43.00 | 8100ms:submit,Site,No
+Attention / scrolling,cc_scrollDepthMax,Deepest scroll reached as a fraction of page height (1 = bottom),number,0-1,Site,No
+Attention / scrolling,cc_scrollCount,Number of scroll events (throttled),integer,>= 0,Site,No
+Attention / scrolling,cc_timeHiddenSeconds,Total time the tab was hidden/inactive (distraction),number,>= 0,Site,No
+Attention / scrolling,cc_tabBlurCount,Times the participant switched away from the survey tab,integer,>= 0,Site,No
+Hover per option,cc_hoverStatement,Times the Statement Balance ($2\,136.90) option was hovered,integer,>= 0,Site,No
+Hover per option,cc_hoverCurrent,Times the Current Balance ($2\,675.11) option was hovered,integer,>= 0,Site,No
+Hover per option,cc_hoverMinimum,Times the Minimum Payment ($43.00) option was hovered,integer,>= 0,Site,No
+Hover per option,cc_hoverOther,Times the Other Amount option was hovered,integer,>= 0,Site,No
+Data quality,cc_dataQualityFlag,Overall quality tag: OK or a semicolon list of flags,text,OK / NO_CHOICE / NO_INTERACTION / VERY_FAST / NEVER_PAYOFF,Site,No
+Data quality,cc_flagNoChoice,No payment option was submitted,categorical,Yes / No,Site,No
+Data quality,cc_flagNoInteraction,Zero logged interactions,categorical,Yes / No,Site,No
+Data quality,cc_flagVeryFast,Completed in under 3 seconds (implausibly fast),categorical,Yes / No,Site,No
+Data quality,cc_flagNeverPayoff,Chose a custom amount too low to ever pay off the balance,categorical,Yes / No,Site,No
+Timestamps,cc_startTimestamp,ISO datetime the payment page loaded,datetime (ISO 8601),e.g. 2026-08-27T14:03:22.104Z,Site,No
+Timestamps,cc_endTimestamp,ISO datetime of submit,datetime (ISO 8601),e.g. 2026-08-27T14:04:10.882Z,Site,No
+Backup,cc_raw,Complete JSON record: every field above plus trace arrays (mousePath hoverEvents focusBlurEvents) and internal fields (conditionVersion strategyIndex); keep as the last column,text (JSON),JSON object,Site,No

@@ -130,20 +130,36 @@ function saveData(p) {
     var hov = p.optionHoverCounts || {};
     var Q = Qualtrics.SurveyEngine;
     function yn(b) { return b ? "Yes" : "No"; }
-    function n(v) { return (v == null ? "" : v); }
+    function n(v) { return (v == null ? "" : v); }              // preserve missing as blank
     function list(a) { return (a || []).join(" | "); }
     function clicks(a) { return (a || []).map(function (x) { return x[0] + "ms:" + x[1]; }).join(" | "); }
 
-    // Identity / condition
+    // Meta / identity
+    Q.setEmbeddedData("cc_schemaVersion", p.schemaVersion);
     Q.setEmbeddedData("cc_sessionId", p.sessionId);
+    // Experimental condition (explicit code + label + factors)
     Q.setEmbeddedData("layout", p.layout);
-    // Decision
+    Q.setEmbeddedData("cc_conditionLabel", p.conditionLabel || "");
+    Q.setEmbeddedData("cc_infoContent", p.infoContent || "");
+    Q.setEmbeddedData("cc_visualDesign", p.visualDesign || "");
+    // Decision (raw inputs)
     Q.setEmbeddedData("cc_firstChoice", n(p.firstChoice));
     Q.setEmbeddedData("cc_firstChoiceLabel", p.firstChoiceLabel || "");
     Q.setEmbeddedData("cc_finalChoice", n(p.finalChoice));
     Q.setEmbeddedData("cc_finalChoiceLabel", p.finalChoiceLabel || "");
     Q.setEmbeddedData("cc_customAmount", n(p.customAmount));
     Q.setEmbeddedData("cc_allChoices", list(p.allChoices));
+    // Calculated outcome of the final choice (auditable against inputs)
+    Q.setEmbeddedData("cc_finalMonthlyPayment", n(p.finalMonthlyPayment));
+    Q.setEmbeddedData("cc_finalPayoffMonths", n(p.finalPayoffMonths));
+    Q.setEmbeddedData("cc_finalTotalPaid", n(p.finalTotalPaid));
+    Q.setEmbeddedData("cc_finalInterest", n(p.finalInterest));
+    Q.setEmbeddedData("cc_finalPrincipal", n(p.finalPrincipal));
+    // Task assumptions / parameters
+    Q.setEmbeddedData("cc_apr", p.apr);
+    Q.setEmbeddedData("cc_statementBalance", p.statementBalance);
+    Q.setEmbeddedData("cc_currentBalance", p.currentBalance);
+    Q.setEmbeddedData("cc_minPayment", p.minPayment);
     // Engagement / tool usage
     Q.setEmbeddedData("cc_interactionCount", p.interactionCount);
     Q.setEmbeddedData("cc_usedSlider", yn(p.usedSlider));
@@ -153,7 +169,7 @@ function saveData(p) {
     Q.setEmbeddedData("cc_sliderMin", n(p.sliderMin));
     Q.setEmbeddedData("cc_sliderMax", n(p.sliderMax));
     Q.setEmbeddedData("cc_sliderLast", n(p.sliderLast));
-    // Timing
+    // Timing (seconds)
     Q.setEmbeddedData("cc_totalTimeSeconds", p.totalTimeSeconds);
     Q.setEmbeddedData("cc_firstInteractionSeconds", n(p.firstInteractionSeconds));
     Q.setEmbeddedData("cc_firstSliderUseSeconds", n(p.firstSliderUseSeconds));
@@ -175,10 +191,16 @@ function saveData(p) {
     Q.setEmbeddedData("cc_hoverCurrent", hov["2675.11"] || 0);
     Q.setEmbeddedData("cc_hoverMinimum", hov["43.00"] || 0);
     Q.setEmbeddedData("cc_hoverOther", hov["other"] || 0);
+    // Data quality
+    Q.setEmbeddedData("cc_dataQualityFlag", p.dataQualityFlag);
+    Q.setEmbeddedData("cc_flagNoChoice", yn(p.flagNoChoice));
+    Q.setEmbeddedData("cc_flagNoInteraction", yn(p.flagNoInteraction));
+    Q.setEmbeddedData("cc_flagVeryFast", yn(p.flagVeryFast));
+    Q.setEmbeddedData("cc_flagNeverPayoff", yn(p.flagNeverPayoff));
     // Timestamps
     Q.setEmbeddedData("cc_startTimestamp", p.startTimestamp);
     Q.setEmbeddedData("cc_endTimestamp", p.endTimestamp);
-    // Full backup
+    // Full backup (last column)
     Q.setEmbeddedData("cc_raw", JSON.stringify(p));
 }
 ```
@@ -186,13 +208,17 @@ function saveData(p) {
 ### B. Declare these fields in Survey Flow, in this order (= export column order)
 
 ```
-cc_sessionId, layout,
+cc_schemaVersion, cc_sessionId,
+layout, cc_conditionLabel, cc_infoContent, cc_visualDesign,
 cc_firstChoice, cc_firstChoiceLabel, cc_finalChoice, cc_finalChoiceLabel, cc_customAmount, cc_allChoices,
+cc_finalMonthlyPayment, cc_finalPayoffMonths, cc_finalTotalPaid, cc_finalInterest, cc_finalPrincipal,
+cc_apr, cc_statementBalance, cc_currentBalance, cc_minPayment,
 cc_interactionCount, cc_usedSlider, cc_usedCustomInput, cc_sliderStops, cc_sliderValues, cc_sliderMin, cc_sliderMax, cc_sliderLast,
 cc_totalTimeSeconds, cc_firstInteractionSeconds, cc_firstSliderUseSeconds, cc_firstCustomInputSeconds,
 cc_mouseClicks, cc_mouseMoveSamples, cc_mouseDistancePx, cc_keyPresses, cc_sliderGrabs, cc_clickLog,
 cc_scrollDepthMax, cc_scrollCount, cc_timeHiddenSeconds, cc_tabBlurCount,
 cc_hoverStatement, cc_hoverCurrent, cc_hoverMinimum, cc_hoverOther,
+cc_dataQualityFlag, cc_flagNoChoice, cc_flagNoInteraction, cc_flagVeryFast, cc_flagNeverPayoff,
 cc_startTimestamp, cc_endTimestamp,
 cc_raw
 ```

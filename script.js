@@ -54,7 +54,9 @@ let activeChart = null;
 let submitted   = false;
 
 const tracking = {
-  sessionId: Math.floor(100000 + Math.random() * 900000),
+  // Collision-resistant session id (timestamp + randomness). Qualtrics also has
+  // its own ResponseID, but this lets us de-duplicate and match rows to cc_raw.
+  sessionId: 'cc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
   conditionVersion: version,
   strategyIndex: typeof ACTIVE_STRATEGY !== 'undefined' ? ACTIVE_STRATEGY : null,
   startTime: Date.now(),
@@ -568,13 +570,71 @@ function resolvePaymentLabel(choiceValue) {
   return choiceValue ?? null;
 }
 
+// Human-readable metadata for each of the 7 conditions (the 2×3 + baseline design).
+//   infoContent  : what information was shown (none / total / breakdown)
+//   visualDesign : how it was presented (baseline / text / slider / slider+graph)
+function layoutMeta(n) {
+  const M = {
+    1: { label: "Baseline control (options only)",                 info: "none",      design: "baseline" },
+    2: { label: "Choice text — total cost & payoff time",          info: "total",     design: "text" },
+    3: { label: "Choice text — interest & principal breakdown",    info: "breakdown", design: "text" },
+    4: { label: "Slider — total cost & payoff time",               info: "total",     design: "slider" },
+    5: { label: "Slider — interest & principal breakdown",         info: "breakdown", design: "slider" },
+    6: { label: "Slider + graph — total cost & payoff time",       info: "total",     design: "slider+graph" },
+    7: { label: "Slider + graph — interest & principal breakdown", info: "breakdown", design: "slider+graph" }
+  };
+  return M[n] || { label: "Unknown", info: "", design: "" };
+}
+
+// Calculated payoff outcome for the participant's FINAL choice, so the derived
+// numbers can be audited against the raw inputs. Uses the same engine + labels.
+function finalOutcome(choiceValue, customAmount) {
+  const none = { monthlyPayment: null, months: null, total: null, interest: null, principal: null };
+  function calc(v, oneTime) {
+    if (oneTime) return { monthlyPayment: v, months: 1, total: Number(v.toFixed(2)), interest: 0, principal: Number(v.toFixed(2)) };
+    const m = computePayoffMetrics(v);
+    if (!isFinite(m.months)) return { monthlyPayment: v, months: null, total: null, interest: null, principal: null };
+    return {
+      monthlyPayment: v, months: m.months,
+      total: Number(m.totalPaid.toFixed(2)),
+      interest: Number(m.totalInterest.toFixed(2)),
+      principal: Number((m.totalPaid - m.totalInterest).toFixed(2))
+    };
+  }
+  if (choiceValue === '2136.90') return calc(STATEMENT_BALANCE, true);
+  if (choiceValue === '2675.11') return calc(CURRENT_BALANCE, true);
+  if (choiceValue === '43.00')   return calc(MIN_PAYMENT, false);
+  if (choiceValue === 'other' && customAmount != null && isFinite(customAmount))
+    return calc(customAmount, customAmount >= STATEMENT_BALANCE);
+  return none;
+}
+
 function getSessionData() {
   tracking.endTime = Date.now();
   const totalTimeSeconds = (tracking.endTime - tracking.startTime) / 1000;
 
+  const meta      = layoutMeta(getLayout());
+  const fo        = finalOutcome(tracking.finalChoice, tracking.customAmount);
+  const noChoice  = !tracking.finalChoice;
+
+  // Data-quality flags — problems are surfaced, never silently fixed.
+  const flags = [];
+  if (noChoice)                        flags.push("NO_CHOICE");
+  if (tracking.interactionCount === 0) flags.push("NO_INTERACTION");
+  if (totalTimeSeconds < 3)            flags.push("VERY_FAST");
+  if (fo.monthlyPayment != null && fo.months === null) flags.push("NEVER_PAYOFF");
+
   return {
+    schemaVersion:          "cc-2.0",
     sessionId:              tracking.sessionId,
-    layout:                 getLayout(),
+
+    // ── Experimental condition (explicit; never inferred) ────────────────
+    layout:                 getLayout(),          // machine-readable code (1–7)
+    conditionCode:          getLayout(),          // alias for clarity
+    conditionLabel:         meta.label,           // human-readable label
+    infoContent:            meta.info,            // none | total | breakdown
+    visualDesign:           meta.design,          // baseline | text | slider | slider+graph
+
     conditionVersion:       tracking.conditionVersion,
     strategyIndex:          typeof ACTIVE_STRATEGY !== 'undefined' ? ACTIVE_STRATEGY : null,
     interactionCount:       tracking.interactionCount,
@@ -613,6 +673,26 @@ function getSessionData() {
     clickLog:               tracking.clickLog,
     hoverEvents:            tracking.hoverEvents,
     focusBlurEvents:        tracking.focusBlurEvents,
+
+    // ── Task assumptions / parameters (to audit the calculated numbers) ──
+    apr:                    ANNUAL_RATE,          // annual interest rate (e.g. 0.2138)
+    statementBalance:       STATEMENT_BALANCE,
+    currentBalance:         CURRENT_BALANCE,
+    minPayment:             MIN_PAYMENT,
+
+    // ── Calculated outcome of the participant's FINAL choice ─────────────
+    finalMonthlyPayment:    fo.monthlyPayment,    // $/month implied by the final choice
+    finalPayoffMonths:      fo.months,            // months to clear the statement balance
+    finalTotalPaid:         fo.total,             // total $ paid over the payoff period
+    finalInterest:          fo.interest,          // total interest $
+    finalPrincipal:         fo.principal,         // total principal $
+
+    // ── Data quality ─────────────────────────────────────────────────────
+    dataQualityFlag:        flags.length ? flags.join(";") : "OK",
+    flagNoChoice:           noChoice,
+    flagNoInteraction:      tracking.interactionCount === 0,
+    flagVeryFast:           totalTimeSeconds < 3,
+    flagNeverPayoff:        (fo.monthlyPayment != null && fo.months === null),
 
     startTimestamp:         new Date(tracking.startTime).toISOString(),
     endTimestamp:           new Date(tracking.endTime).toISOString()
