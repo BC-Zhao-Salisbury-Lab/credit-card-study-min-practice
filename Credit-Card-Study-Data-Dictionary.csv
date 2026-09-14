@@ -1,8 +1,6 @@
 Group,Variable,Description,Type,Possible Values,Source,Condition-Dependent
-Meta / identity,cc_schemaVersion,Version of the data schema the record was produced with (for reproducibility across waves),text,e.g. cc-2.0,Site,No
 Meta / identity,cc_sessionId,Unique id for this payment-tool session (timestamp + random); de-duplicate and match a row to its cc_raw. Qualtrics ResponseID is the primary key,text,e.g. cc-lz4k9-a1b2c3,Site,No
-Experimental condition,layout,Condition code assigned by the Qualtrics randomizer and echoed by the page; THE primary condition variable,integer,1-7,Qualtrics randomizer,-
-Experimental condition,cc_conditionCode,Numeric condition code reported back by the site (equals layout; explicit duplicate for safety),integer,1-7,Site,-
+Experimental condition,cc_conditionCode,Numeric condition code (1-7); THE primary condition variable,integer,1-7,Site,-
 Experimental condition,cc_conditionLabel,Human-readable description of the condition,text,e.g. Slider + graph - total cost & payoff time,Site,-
 Experimental condition,cc_infoContent,Information-content factor: what payoff information was shown,categorical,none / total / breakdown,Site,-
 Experimental condition,cc_visualDesign,Visual-design factor: how the information was presented,categorical,baseline / text / slider / slider+graph,Site,-
@@ -55,11 +53,9 @@ Data quality,cc_flagNoChoice,No payment option was submitted,categorical,Yes / N
 Data quality,cc_flagNoInteraction,Zero logged interactions,categorical,Yes / No,Site,No
 Data quality,cc_flagVeryFast,Completed in under 3 seconds (implausibly fast),categorical,Yes / No,Site,No
 Data quality,cc_flagNeverPayoff,Chose a custom amount too low to ever pay off the balance,categorical,Yes / No,Site,No
-Internal / legacy,cc_conditionVersion,Legacy internal copy of the condition code (equals layout); kept for completeness,integer,1-7,Site,No
-Internal / legacy,cc_strategyIndex,Internal chart-type index (a researcher display setting; not participant behavior),integer,1-9,Site,No
 Timestamps,cc_startTimestamp,ISO datetime the payment page loaded,datetime (ISO 8601),e.g. 2026-08-27T14:03:22.104Z,Site,No
 Timestamps,cc_endTimestamp,ISO datetime of submit,datetime (ISO 8601),e.g. 2026-08-27T14:04:10.882Z,Site,No
-Backup,cc_raw,Complete JSON record mirroring every cc_ column above; keep as the last column as a fallback,text (JSON),JSON object,Site,No
+Backup,cc_raw,Complete JSON record; mirrors every cc_ column above AND still contains schemaVersion / layout / conditionVersion / strategyIndex (not exported as their own columns). Keep as the last column as a fallback,text (JSON),JSON object,Site,No
 Qualtrics standard,ResponseId,Qualtrics unique response id (primary key for merging),text,e.g. R_abc123,Qualtrics,No
 Qualtrics standard,StartDate,When the participant began the whole survey,datetime,Qualtrics local time,Qualtrics,No
 Qualtrics standard,EndDate,When the participant finished the whole survey,datetime,Qualtrics local time,Qualtrics,No

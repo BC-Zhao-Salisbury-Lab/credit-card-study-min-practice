@@ -136,10 +136,8 @@ function saveData(p) {
     function triples(a) { return (a || []).map(function (x) { return x.join(","); }).join(" | "); }
 
     // Meta / identity
-    Q.setEmbeddedData("cc_schemaVersion", p.schemaVersion);
     Q.setEmbeddedData("cc_sessionId", p.sessionId);
     // Experimental condition (explicit code + label + factors)
-    Q.setEmbeddedData("layout", p.layout);
     Q.setEmbeddedData("cc_conditionCode", p.conditionCode);
     Q.setEmbeddedData("cc_conditionLabel", p.conditionLabel || "");
     Q.setEmbeddedData("cc_infoContent", p.infoContent || "");
@@ -202,9 +200,6 @@ function saveData(p) {
     Q.setEmbeddedData("cc_flagNoInteraction", yn(p.flagNoInteraction));
     Q.setEmbeddedData("cc_flagVeryFast", yn(p.flagVeryFast));
     Q.setEmbeddedData("cc_flagNeverPayoff", yn(p.flagNeverPayoff));
-    // Internal / legacy (kept for completeness)
-    Q.setEmbeddedData("cc_conditionVersion", n(p.conditionVersion));
-    Q.setEmbeddedData("cc_strategyIndex", n(p.strategyIndex));
     // Timestamps
     Q.setEmbeddedData("cc_startTimestamp", p.startTimestamp);
     Q.setEmbeddedData("cc_endTimestamp", p.endTimestamp);
@@ -219,8 +214,8 @@ only home of any variable.
 ### B. Declare these fields in Survey Flow, in this order (= export column order)
 
 ```
-cc_schemaVersion, cc_sessionId,
-layout, cc_conditionCode, cc_conditionLabel, cc_infoContent, cc_visualDesign,
+cc_sessionId,
+cc_conditionCode, cc_conditionLabel, cc_infoContent, cc_visualDesign,
 cc_firstChoice, cc_firstChoiceLabel, cc_finalChoice, cc_finalChoiceLabel, cc_customAmount, cc_allChoices,
 cc_finalMonthlyPayment, cc_finalPayoffMonths, cc_finalTotalPaid, cc_finalInterest, cc_finalPrincipal,
 cc_apr, cc_statementBalance, cc_currentBalance, cc_minPayment,
@@ -230,10 +225,15 @@ cc_mouseClicks, cc_mouseMoveSamples, cc_mouseDistancePx, cc_keyPresses, cc_slide
 cc_scrollDepthMax, cc_scrollCount, cc_timeHiddenSeconds, cc_tabBlurCount, cc_focusBlurEvents,
 cc_hoverStatement, cc_hoverCurrent, cc_hoverMinimum, cc_hoverOther, cc_hoverEvents,
 cc_dataQualityFlag, cc_flagNoChoice, cc_flagNoInteraction, cc_flagVeryFast, cc_flagNeverPayoff,
-cc_conditionVersion, cc_strategyIndex,
 cc_startTimestamp, cc_endTimestamp,
 cc_raw
 ```
+
+Note: `layout` is still set by the Qualtrics randomizer and injected into the
+iframe URL — leave that field in Survey Flow. The site just no longer re-writes
+it as a data column; the condition lives in `cc_conditionCode` / `cc_conditionLabel`
+(and `layout` is also inside `cc_raw`). `cc_schemaVersion`, `cc_conditionVersion`,
+and `cc_strategyIndex` are no longer exported as columns — they remain in `cc_raw`.
 
 ### C. Delete these stale Survey Flow fields (they'll only ever be blank)
 

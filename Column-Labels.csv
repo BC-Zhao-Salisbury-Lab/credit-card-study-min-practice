@@ -1,8 +1,6 @@
 field,label
-cc_schemaVersion,Data schema version
 cc_sessionId,Session ID
-layout,Condition (code 1-7)
-cc_conditionCode,Condition code
+cc_conditionCode,Condition (code 1-7)
 cc_conditionLabel,Condition (label)
 cc_infoContent,Info content (none/total/breakdown)
 cc_visualDesign,Visual design
@@ -55,8 +53,6 @@ cc_flagNoChoice,Flag: no choice submitted
 cc_flagNoInteraction,Flag: no interaction
 cc_flagVeryFast,Flag: very fast (<3s)
 cc_flagNeverPayoff,Flag: never pays off
-cc_conditionVersion,Condition version (internal)
-cc_strategyIndex,Chart strategy index (internal)
 cc_startTimestamp,Payment task start
 cc_endTimestamp,Payment task end (submit)
 cc_raw,Raw JSON record (backup)
