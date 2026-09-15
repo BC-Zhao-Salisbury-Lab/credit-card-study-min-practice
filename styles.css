@@ -1021,7 +1021,48 @@ html.cc-embed-fit {
   --density-col-gap:      14px;
   --density-card-pad-y:   11px;
   --density-card-pad-x:   15px;
-  --density-chart-h:      215px;   /* still the largest element, kept readable */
+  --density-chart-h:      215px;   /* fallback; overridden to flex below */
+}
+
+/* ── FLEX-FILL: pin the whole tool to exactly one screen and let the working
+   area (graph column) absorb the leftover height. This makes layouts 1–7 all
+   fit without scrolling, regardless of exact element heights, because the
+   iframe is sized to the visible viewport (by the Qualtrics JS) and nothing
+   overflows. ── */
+html.cc-embed-fit, html.cc-embed-fit body { height: 100%; }
+html.cc-embed-fit body {
+  height: 100vh; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+html.cc-embed-fit .navbar,
+html.cc-embed-fit .hero-bar,
+html.cc-embed-fit .account-summary,
+html.cc-embed-fit #sliderSection,
+html.cc-embed-fit .submit-section { flex: 0 0 auto; }
+html.cc-embed-fit .site-footer { display: none; }        /* reclaim space */
+
+html.cc-embed-fit .page-body {
+  flex: 1 1 auto; min-height: 0; overflow: hidden;
+  padding-top: var(--density-page-pad-top); padding-bottom: 8px;
+}
+html.cc-embed-fit .wrap {
+  height: 100%; min-height: 0;
+  display: flex; flex-direction: column; gap: var(--density-stack-gap);
+}
+/* The two-column working row takes all remaining vertical space. */
+html.cc-embed-fit .two-col-row { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+html.cc-embed-fit .col-left  { align-self: start; min-height: 0; }  /* options: natural height */
+html.cc-embed-fit .col-right { min-height: 0; }
+html.cc-embed-fit .col-right .section-card.h-full {
+  height: 100%; min-height: 0; display: flex; flex-direction: column;
+}
+html.cc-embed-fit .results-grid { flex: 0 0 auto; }
+html.cc-embed-fit #chartSection,
+html.cc-embed-fit .chart-section { flex: 1 1 auto; min-height: 0; display: flex; }
+html.cc-embed-fit .chart-card { height: 100%; min-height: 0; flex: 1 1 auto; display: flex; }
+html.cc-embed-fit .canvas-holder {
+  height: 100% !important; min-height: 110px !important; max-height: none !important;
+  flex: 1 1 auto;
 }
 
 /* Header chrome — trimmed hard (branding is not the task). */
@@ -1216,7 +1257,11 @@ body.feat-graph-breakdown .result-card--interest { display: flex; }
 /* Card row above the graph: L6 → two cards side by side; L7 → all four across
    in a single row. The cards are compact so they read as a slim summary strip. */
 body.feat-graph .results-grid            { grid-template-columns: 1fr 1fr; gap: 8px; }
-body.feat-graph-breakdown .results-grid  { grid-template-columns: repeat(4, 1fr); }
+/* L7: four across. Tighter gap + padding so each card is a touch wider and the
+   Time-to-Pay-Off value fits on one line (text size unchanged, so it stays
+   consistent with L6). */
+body.feat-graph-breakdown .results-grid  { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+body.feat-graph-breakdown .result-card   { padding: 6px 6px; }
 
 body.feat-graph .result-card {
   height: auto;
@@ -1227,8 +1272,15 @@ body.feat-graph .result-card {
 }
 body.feat-graph .result-label { font-size: 0.58rem; letter-spacing: 0.03em; }
 body.feat-graph .result-value { font-size: 0.72rem; }
-/* Time-to-pay-off card carries the month count in parentheses, so let it wrap. */
-body.feat-graph .result-card--time .result-value { white-space: normal; }
+/* Time-to-pay-off card carries "(N months)" too, so it is the longest value.
+   Keep it on ONE line in BOTH graph layouts (L6 wide cards, L7 four narrow
+   cards) at the SAME size, by using nowrap + a slightly smaller font that fits
+   the L7 card. Same rule for both layouts, so the value size stays consistent. */
+body.feat-graph .result-card--time .result-value {
+  white-space: nowrap;
+  font-size: 0.62rem;
+  letter-spacing: -0.01em;
+}
 
 /* On narrow screens the four-across strip would be too cramped → fall to 2×2. */
 @media (max-width: 760px) {
@@ -1247,10 +1299,9 @@ body.feat-slider .slider-intro { display: block !important; }
   color: var(--text-muted);
 }
 
-/* Time-to-Pay-Off card: keep the duration and the "(N months)" each as an
-   unbreakable chunk. The value wraps between them only when the card is too
-   narrow (layout 7); otherwise it stays on one line (layout 6). */
-body.feat-graph .result-card--time .result-value { white-space: normal; }
+/* Time-to-Pay-Off card: duration and the "(N months)" are each unbreakable, and
+   the whole value stays on one line in both L6 and L7 (see the nowrap + sizing
+   rule above). */
 body.feat-graph .result-card--time .dur,
 body.feat-graph .result-card--time .months-paren { white-space: nowrap; }
 body.feat-graph .result-card--time .months-paren { font-weight: 700; }
