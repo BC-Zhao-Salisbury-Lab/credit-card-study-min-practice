@@ -1030,7 +1030,17 @@ html.cc-embed-fit {
    height (--density-chart-h). Compaction elsewhere keeps the whole tool within
    a laptop screen. The account-info box is removed entirely to save space. */
 html.cc-embed-fit .site-footer      { display: none; }   /* reclaim space */
-html.cc-embed-fit .page-body        { padding-bottom: 10px; }
+/* Center the working area vertically when the screen has spare height (so the
+   tool gets even margin above/below instead of hugging the top). When content
+   is taller than the space, it simply fills top-to-bottom — no clipping. The
+   iframe is sized to max(content, viewport) by the Qualtrics JS, which is what
+   provides the spare height to center into. */
+html.cc-embed-fit .page-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-bottom: 10px;
+}
 
 /* Header chrome — trimmed hard (branding is not the task). The navbar becomes a
    thin green line: no logo, brand name, or menu icon — just a slim accent bar,
@@ -1251,11 +1261,10 @@ body.feat-graph-breakdown .result-card--interest { display: flex; }
 /* Card row above the graph: L6 → two cards side by side; L7 → all four across
    in a single row. The cards are compact so they read as a slim summary strip. */
 body.feat-graph .results-grid            { grid-template-columns: 1fr 1fr; gap: 8px; }
-/* L7: four across. Tighter gap + padding so each card is a touch wider and the
-   Time-to-Pay-Off value fits on one line (text size unchanged, so it stays
-   consistent with L6). */
-body.feat-graph-breakdown .results-grid  { grid-template-columns: repeat(4, 1fr); gap: 6px; }
-body.feat-graph-breakdown .result-card   { padding: 6px 6px; }
+/* L7: four across. The Time-to-Pay-Off box (4th) is WIDER and the other three
+   are evenly narrower, so the full-size value fits on one line without shrinking
+   the font — keeping every card's value the same size. */
+body.feat-graph-breakdown .results-grid  { grid-template-columns: 1fr 1fr 1fr 1.5fr; gap: 8px; }
 
 body.feat-graph .result-card {
   height: auto;
@@ -1267,13 +1276,11 @@ body.feat-graph .result-card {
 body.feat-graph .result-label { font-size: 0.58rem; letter-spacing: 0.03em; }
 body.feat-graph .result-value { font-size: 0.72rem; }
 /* Time-to-pay-off card carries "(N months)" too, so it is the longest value.
-   Keep it on ONE line in BOTH graph layouts (L6 wide cards, L7 four narrow
-   cards) at the SAME size, by using nowrap + a slightly smaller font that fits
-   the L7 card. Same rule for both layouts, so the value size stays consistent. */
+   It stays on ONE line via nowrap; the box is made wide enough (L6 wide cards,
+   L7 widened 4th column) that it fits at the SAME font size as every other
+   card value — no font shrink. */
 body.feat-graph .result-card--time .result-value {
   white-space: nowrap;
-  font-size: 0.62rem;
-  letter-spacing: -0.01em;
 }
 
 /* On narrow screens the four-across strip would be too cramped → fall to 2×2. */
