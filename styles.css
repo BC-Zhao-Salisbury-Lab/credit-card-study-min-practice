@@ -1105,10 +1105,17 @@ html.cc-embed-fit .hero-sub {
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
 
-/* Account Summary — least important, so compressed the MOST. */
+/* Account Summary — least important, so compressed the MOST. Reflow the six
+   info lines into 3 columns × 2 rows (instead of 2 columns × 3 rows) to save a
+   row of vertical space. display:contents dissolves the two .info-col wrappers
+   so all six lines flow directly into the 3-column grid. */
 html.cc-embed-fit .account-summary { margin-bottom: 0; }
-html.cc-embed-fit .account-summary.statement-info { padding: 6px 16px; gap: 1px 32px; }
-html.cc-embed-fit .statement-info .info-col  { gap: 2px; }
+html.cc-embed-fit .account-summary.statement-info {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px 28px;
+  padding: 6px 16px;
+}
+html.cc-embed-fit .statement-info .info-col  { display: contents; }
 html.cc-embed-fit .statement-info .info-line { font-size: 0.78rem; line-height: 1.25; }
 html.cc-embed-fit .account-item { padding: 5px 16px; }
 html.cc-embed-fit .acct-label   { font-size: 0.68rem; margin-bottom: 0; }
