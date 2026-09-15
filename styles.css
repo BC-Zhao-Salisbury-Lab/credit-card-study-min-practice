@@ -1030,17 +1030,9 @@ html.cc-embed-fit {
    height (--density-chart-h). Compaction elsewhere keeps the whole tool within
    a laptop screen. The account-info box is removed entirely to save space. */
 html.cc-embed-fit .site-footer      { display: none; }   /* reclaim space */
-/* Center the working area vertically when the screen has spare height (so the
-   tool gets even margin above/below instead of hugging the top). When content
-   is taller than the space, it simply fills top-to-bottom — no clipping. The
-   iframe is sized to max(content, viewport) by the Qualtrics JS, which is what
-   provides the spare height to center into. */
-html.cc-embed-fit .page-body {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding-bottom: 10px;
-}
+/* A little breathing room at the top so the tool doesn't hug the very top of
+   the frame. Normal top-to-bottom flow (no centering) to avoid scroll issues. */
+html.cc-embed-fit .page-body { padding-top: 22px; padding-bottom: 10px; }
 
 /* Header chrome — trimmed hard (branding is not the task). The navbar becomes a
    thin green line: no logo, brand name, or menu icon — just a slim accent bar,
