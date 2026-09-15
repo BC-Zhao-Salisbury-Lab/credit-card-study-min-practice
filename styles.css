@@ -1049,26 +1049,53 @@ html.cc-embed-fit .wrap {
   height: 100%; min-height: 0;
   display: flex; flex-direction: column; gap: var(--density-stack-gap);
 }
-/* The two-column working row takes all remaining vertical space. */
-html.cc-embed-fit .two-col-row { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+/* The two-column working row takes all remaining vertical space. It is a GRID,
+   so its row must be given a definite height (minmax(0,1fr)); otherwise the
+   auto row height breaks the chart's height:100% chain and the canvas overflows
+   over the submit button. */
+html.cc-embed-fit .two-col-row {
+  flex: 1 1 auto; min-height: 0;
+  align-items: stretch;
+  grid-template-rows: minmax(0, 1fr);
+}
 html.cc-embed-fit .col-left  { align-self: start; min-height: 0; }  /* options: natural height */
 html.cc-embed-fit .col-right { min-height: 0; }
 html.cc-embed-fit .col-right .section-card.h-full {
-  height: 100%; min-height: 0; display: flex; flex-direction: column;
+  height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
 }
 html.cc-embed-fit .results-grid { flex: 0 0 auto; }
 html.cc-embed-fit #chartSection,
-html.cc-embed-fit .chart-section { flex: 1 1 auto; min-height: 0; display: flex; }
-html.cc-embed-fit .chart-card { height: 100%; min-height: 0; flex: 1 1 auto; display: flex; }
+html.cc-embed-fit .chart-section { flex: 1 1 auto; min-height: 0; display: flex; overflow: hidden; }
+html.cc-embed-fit .chart-card { height: 100%; min-height: 0; flex: 1 1 auto; display: flex; overflow: hidden; }
 html.cc-embed-fit .canvas-holder {
-  height: 100% !important; min-height: 110px !important; max-height: none !important;
-  flex: 1 1 auto;
+  height: auto !important; min-height: 0 !important; max-height: none !important;
+  flex: 1 1 auto; position: relative; overflow: hidden;
+}
+/* Pin the Chart.js canvas to exactly fill its holder so it can never overflow
+   (this is what stops the graph overlapping the Submit button in Layout 7). */
+html.cc-embed-fit .canvas-holder > canvas {
+  position: absolute !important;
+  top: 0; left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
 
-/* Header chrome — trimmed hard (branding is not the task). */
-html.cc-embed-fit .navbar    { height: 40px; }
+/* Header chrome — trimmed hard (branding is not the task). The navbar becomes a
+   thin green line: no logo, brand name, or menu icon — just a slim accent bar,
+   saving ~46px of vertical space. */
+html.cc-embed-fit .navbar {
+  height: 4px; min-height: 4px;
+  padding: 0;
+  background: var(--primary);
+  border-bottom: none;
+  box-shadow: none;
+  overflow: hidden;
+}
+html.cc-embed-fit .navbar .nav-brand,
+html.cc-embed-fit .navbar .nav-icon,
 html.cc-embed-fit #logo,
-html.cc-embed-fit .brand-name { font-size: 1.05rem; }
+html.cc-embed-fit .brand-name { display: none; }
 html.cc-embed-fit .hero-bar  { padding: 5px 0 6px; }
 html.cc-embed-fit .hero-icon { font-size: 1.9rem; }
 html.cc-embed-fit .hero-inner { gap: 12px; }
