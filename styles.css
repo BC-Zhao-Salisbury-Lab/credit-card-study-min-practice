@@ -1016,12 +1016,12 @@ body {
    untouched. Per request, the top Account Summary is compressed the most.
    ═══════════════════════════════════════════════════════════════════════════ */
 html.cc-embed-fit {
-  --density-page-pad-top: 5px;
-  --density-stack-gap:    6px;
-  --density-col-gap:      14px;
-  --density-card-pad-y:   9px;
-  --density-card-pad-x:   15px;
-  --density-chart-h:      220px;   /* fixed, clearly viewable graph height */
+  --density-page-pad-top: 8px;
+  --density-stack-gap:    10px;
+  --density-col-gap:      16px;
+  --density-card-pad-y:   12px;
+  --density-card-pad-x:   16px;
+  --density-chart-h:      228px;   /* fixed, clearly viewable graph height */
 }
 
 /* ── NORMAL TOP-TO-BOTTOM FLOW (no flex-fill) ──────────────────────────────
@@ -1047,7 +1047,7 @@ html.cc-embed-fit .navbar .nav-brand,
 html.cc-embed-fit .navbar .nav-icon,
 html.cc-embed-fit #logo,
 html.cc-embed-fit .brand-name { display: none; }
-html.cc-embed-fit .hero-bar  { padding: 3px 0 4px; }
+html.cc-embed-fit .hero-bar  { padding: 6px 0 7px; }
 html.cc-embed-fit .hero-icon { font-size: 1.9rem; }
 html.cc-embed-fit .hero-inner { gap: 12px; }
 html.cc-embed-fit .hero-title { font-size: 1.2rem; margin-bottom: 1px; }
@@ -1079,13 +1079,13 @@ html.cc-embed-fit .acct-value   { font-size: 0.82rem !important; }
 html.cc-embed-fit .two-col-row { grid-template-columns: 1fr 1fr; }
 
 /* Options — tighter rows. */
-html.cc-embed-fit .options-legend { margin-bottom: 4px; }
-html.cc-embed-fit .option-row  { padding: 5px 11px; margin-bottom: 3px; }
-html.cc-embed-fit .option-desc { line-height: 1.25; }
+html.cc-embed-fit .options-legend { margin-bottom: 6px; }
+html.cc-embed-fit .option-row  { padding: 7px 12px; margin-bottom: 5px; }
+html.cc-embed-fit .option-desc { line-height: 1.3; }
 
 /* Summary result cards + chart trims. */
-html.cc-embed-fit .results-grid { gap: 6px; margin-bottom: 4px; }
-html.cc-embed-fit .result-card  { height: 48px; min-height: 48px; max-height: 48px; padding: 6px 12px; }
+html.cc-embed-fit .results-grid { gap: 8px; margin-bottom: 6px; }
+html.cc-embed-fit .result-card  { height: 54px; min-height: 54px; max-height: 54px; padding: 8px 12px; }
 html.cc-embed-fit .chart-title  { margin-bottom: 4px; font-size: 0.78rem; }
 html.cc-embed-fit .viz-desc     { font-size: 0.78rem; margin-bottom: 4px; }
 html.cc-embed-fit .disclaimer   { font-size: 0.7rem; margin-top: 4px; padding-top: 4px; }
@@ -1097,12 +1097,12 @@ html.cc-embed-fit .slider-intro      { font-size: 0.8rem; margin-bottom: 2px; }
 html.cc-embed-fit .slider-track-area { margin: 3px 0; }
 html.cc-embed-fit .slider-track-wrap { padding-top: 20px; }          /* bubble space */
 html.cc-embed-fit .slider-notch-labels { height: 20px; }             /* marker labels row */
-html.cc-embed-fit .slider-message    { margin-top: 6px; padding: 6px 12px; font-size: 0.82rem; line-height: 1.35; }
-html.cc-embed-fit .scenario-callout  { font-size: 0.8rem; line-height: 1.25; padding: 6px 12px; min-height: 28px; }
-html.cc-embed-fit .remainder-note    { font-size: 0.74rem; padding: 5px 10px; margin-top: 5px; line-height: 1.3; }
+html.cc-embed-fit .slider-message    { margin-top: 9px; padding: 8px 13px; font-size: 0.83rem; line-height: 1.45; }
+html.cc-embed-fit .scenario-callout  { font-size: 0.82rem; line-height: 1.35; padding: 8px 13px; min-height: 32px; }
+html.cc-embed-fit .remainder-note    { font-size: 0.75rem; padding: 6px 11px; margin-top: 7px; line-height: 1.35; }
 
 /* Submit bar — compact. */
-html.cc-embed-fit .submit-card { padding: 7px 15px; }
+html.cc-embed-fit .submit-card { padding: 10px 16px; }
 html.cc-embed-fit .submit-text { font-size: 0.82rem; line-height: 1.35; }
 html.cc-embed-fit .submit-hint { margin: 0; }
 html.cc-embed-fit .page-body   { padding-bottom: 6px; }
