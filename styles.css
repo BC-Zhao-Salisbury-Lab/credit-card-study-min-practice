@@ -1061,7 +1061,10 @@ html.cc-embed-fit .hero-sub {
    row of vertical space. display:contents dissolves the two .info-col wrappers
    so all six lines flow directly into the 3-column grid. */
 html.cc-embed-fit .account-summary { margin-bottom: 0; }
+/* Always show the account-info box in the study view (professors want it), even
+   if a stale saved "hide account details" setting is present. */
 html.cc-embed-fit .account-summary.statement-info {
+  display: grid !important;
   grid-template-columns: repeat(3, 1fr);
   gap: 2px 28px;
   padding: 6px 16px;
