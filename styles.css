@@ -1030,7 +1030,6 @@ html.cc-embed-fit {
    height (--density-chart-h). Compaction elsewhere keeps the whole tool within
    a laptop screen. The account-info box is removed entirely to save space. */
 html.cc-embed-fit .site-footer      { display: none; }   /* reclaim space */
-html.cc-embed-fit .account-summary  { display: none; }   /* removed per request */
 html.cc-embed-fit .page-body        { padding-bottom: 10px; }
 
 /* Header chrome — trimmed hard (branding is not the task). The navbar becomes a
@@ -1093,6 +1092,9 @@ html.cc-embed-fit .chart-section { margin-top: 6px; padding-top: 6px; }
 /* Slider block trims. */
 html.cc-embed-fit .slider-intro      { font-size: 0.8rem; margin-bottom: 2px; }
 html.cc-embed-fit .slider-track-area { margin: 3px 0; }
+html.cc-embed-fit .slider-track-wrap { padding-top: 20px; }          /* bubble space */
+html.cc-embed-fit .slider-notch-labels { height: 20px; }             /* marker labels row */
+html.cc-embed-fit .slider-message    { margin-top: 6px; padding: 6px 12px; font-size: 0.82rem; line-height: 1.35; }
 html.cc-embed-fit .scenario-callout  { font-size: 0.8rem; line-height: 1.25; padding: 6px 12px; min-height: 28px; }
 html.cc-embed-fit .remainder-note    { font-size: 0.74rem; padding: 5px 10px; margin-top: 5px; line-height: 1.3; }
 
