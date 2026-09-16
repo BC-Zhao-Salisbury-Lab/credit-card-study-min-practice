@@ -1034,21 +1034,10 @@ html.cc-embed-fit .site-footer      { display: none; }   /* reclaim space */
    Normal top-to-bottom flow (no centering) to avoid scroll issues. */
 html.cc-embed-fit .page-body { padding-top: 12px; padding-bottom: 8px; }
 
-/* Header chrome — trimmed hard (branding is not the task). The navbar becomes a
-   thin green line: no logo, brand name, or menu icon — just a slim accent bar,
-   saving ~46px of vertical space. */
-html.cc-embed-fit .navbar {
-  height: 4px; min-height: 4px;
-  padding: 0;
-  background: var(--primary);
-  border-bottom: none;
-  box-shadow: none;
-  overflow: hidden;
-}
-html.cc-embed-fit .navbar .nav-brand,
-html.cc-embed-fit .navbar .nav-icon,
-html.cc-embed-fit #logo,
-html.cc-embed-fit .brand-name { display: none; }
+/* Header chrome — removed entirely in the study view (branding is not the task).
+   No navbar/green line at all; the small page-body top padding gives a slight
+   gap between the top of the screen and the account-info box. */
+html.cc-embed-fit .navbar { display: none; }
 html.cc-embed-fit .hero-bar  { padding: 4px 0 5px; }
 html.cc-embed-fit .hero-icon { font-size: 1.9rem; }
 html.cc-embed-fit .hero-inner { gap: 12px; }
