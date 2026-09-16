@@ -1017,9 +1017,9 @@ body {
    ═══════════════════════════════════════════════════════════════════════════ */
 html.cc-embed-fit {
   --density-page-pad-top: 8px;
-  --density-stack-gap:    10px;
+  --density-stack-gap:    8px;
   --density-col-gap:      16px;
-  --density-card-pad-y:   12px;
+  --density-card-pad-y:   10px;
   --density-card-pad-x:   16px;
   --density-chart-h:      228px;   /* fixed, clearly viewable graph height */
 }
@@ -1030,9 +1030,9 @@ html.cc-embed-fit {
    height (--density-chart-h). Compaction elsewhere keeps the whole tool within
    a laptop screen. The account-info box is removed entirely to save space. */
 html.cc-embed-fit .site-footer      { display: none; }   /* reclaim space */
-/* A little breathing room at the top so the tool doesn't hug the very top of
-   the frame. Normal top-to-bottom flow (no centering) to avoid scroll issues. */
-html.cc-embed-fit .page-body { padding-top: 22px; padding-bottom: 10px; }
+/* A small margin at the top so the tool doesn't hug the very top of the frame.
+   Normal top-to-bottom flow (no centering) to avoid scroll issues. */
+html.cc-embed-fit .page-body { padding-top: 12px; padding-bottom: 8px; }
 
 /* Header chrome — trimmed hard (branding is not the task). The navbar becomes a
    thin green line: no logo, brand name, or menu icon — just a slim accent bar,
@@ -1049,7 +1049,7 @@ html.cc-embed-fit .navbar .nav-brand,
 html.cc-embed-fit .navbar .nav-icon,
 html.cc-embed-fit #logo,
 html.cc-embed-fit .brand-name { display: none; }
-html.cc-embed-fit .hero-bar  { padding: 6px 0 7px; }
+html.cc-embed-fit .hero-bar  { padding: 4px 0 5px; }
 html.cc-embed-fit .hero-icon { font-size: 1.9rem; }
 html.cc-embed-fit .hero-inner { gap: 12px; }
 html.cc-embed-fit .hero-title { font-size: 1.2rem; margin-bottom: 1px; }
@@ -1082,12 +1082,12 @@ html.cc-embed-fit .two-col-row { grid-template-columns: 1fr 1fr; }
 
 /* Options — tighter rows. */
 html.cc-embed-fit .options-legend { margin-bottom: 6px; }
-html.cc-embed-fit .option-row  { padding: 7px 12px; margin-bottom: 5px; }
-html.cc-embed-fit .option-desc { line-height: 1.3; }
+html.cc-embed-fit .option-row  { padding: 6px 12px; margin-bottom: 4px; }
+html.cc-embed-fit .option-desc { line-height: 1.28; }
 
 /* Summary result cards + chart trims. */
-html.cc-embed-fit .results-grid { gap: 8px; margin-bottom: 6px; }
-html.cc-embed-fit .result-card  { height: 54px; min-height: 54px; max-height: 54px; padding: 8px 12px; }
+html.cc-embed-fit .results-grid { gap: 8px; margin-bottom: 5px; }
+html.cc-embed-fit .result-card  { height: 50px; min-height: 50px; max-height: 50px; padding: 6px 12px; }
 html.cc-embed-fit .chart-title  { margin-bottom: 4px; font-size: 0.78rem; }
 html.cc-embed-fit .viz-desc     { font-size: 0.78rem; margin-bottom: 4px; }
 html.cc-embed-fit .disclaimer   { font-size: 0.7rem; margin-top: 4px; padding-top: 4px; }
@@ -1104,7 +1104,7 @@ html.cc-embed-fit .scenario-callout  { font-size: 0.82rem; line-height: 1.35; pa
 html.cc-embed-fit .remainder-note    { font-size: 0.75rem; padding: 6px 11px; margin-top: 7px; line-height: 1.35; }
 
 /* Submit bar — compact. */
-html.cc-embed-fit .submit-card { padding: 10px 16px; }
+html.cc-embed-fit .submit-card { padding: 8px 16px; }
 html.cc-embed-fit .submit-text { font-size: 0.82rem; line-height: 1.35; }
 html.cc-embed-fit .submit-hint { margin: 0; }
 html.cc-embed-fit .page-body   { padding-bottom: 6px; }
