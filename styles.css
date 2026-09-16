@@ -1029,6 +1029,14 @@ html.cc-embed-fit {
    BELOW the graph and can never overlap it. The graph keeps a fixed, readable
    height (--density-chart-h). Compaction elsewhere keeps the whole tool within
    a laptop screen. The account-info box is removed entirely to save space. */
+/* ── STOP THE INFINITE-SCROLL LOOP ──────────────────────────────────────────
+   The base body has min-height:100vh. Inside the iframe that stretches the body
+   to the iframe's height; the page reports that height back, the parent grows
+   the iframe, and it stretches again — an endless growth/scroll loop. Removing
+   the stretch makes the body equal its real content height, so the reported
+   height is stable and the loop can't happen. */
+html.cc-embed-fit body { min-height: 0 !important; }
+
 html.cc-embed-fit .site-footer      { display: none; }   /* reclaim space */
 /* A small margin at the top so the tool doesn't hug the very top of the frame.
    Normal top-to-bottom flow (no centering) to avoid scroll issues. */
