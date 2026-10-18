@@ -832,12 +832,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const dateFmt = { month: 'short', day: 'numeric', year: 'numeric' };
 
-  // Payment due date — fixed to October 15 (of the current year).
   // Payment due date (25 days out from today).
   const targetDueDateEl = document.getElementById("dynamicDueDate");
   if (targetDueDateEl) {
     const due = new Date();
-    due.setMonth(9, 15); // month index 9 = October, day 15
     due.setDate(due.getDate() + 25);
     targetDueDateEl.textContent = due.toLocaleDateString('en-US', dateFmt);
   }
